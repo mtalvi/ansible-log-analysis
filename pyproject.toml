@@ -7,7 +7,13 @@ authors = [
     { name = "Itay Katav", email = "ikatav@redhat.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.27",
+    "langchain-openai>=0.3.28",
+    "langgraph>=0.6.3",
+    "python-dotenv>=1.0.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -16,10 +22,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/alm"]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "black>=24.2.0",
-    "isort>=6.0.0",
-    "flake8>=6.0.0",
-    "pre-commit>=3.0.0",
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+    "isort>=6.0.1",
+    "jupyterlab>=4.4.5",
+    "pre-commit>=4.2.0",
+    "rich>=14.1.0",
 ]
