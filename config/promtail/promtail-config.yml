@@ -16,7 +16,14 @@ scrape_configs:
     labels:
       job: varlogs
       __path__: /var/log/*log
-  
+
+podSecurityContext:
+  runAsUser: null
+  runAsGroup: null
+  seccompProfile:
+    type: RuntimeDefault
+  seLinuxOptions:
+    type: spc_t
 ## docker logs
 
 #- job_name: docker 
