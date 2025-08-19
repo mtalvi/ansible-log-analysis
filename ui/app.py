@@ -1,18 +1,10 @@
-#!/usr/bin/env python3
-"""
-Ansible Logs Viewer - Gradio UI
-
-A simple Gradio interface for browsing log alerts by category.
-"""
-
 import os
 import gradio as gr
 import httpx
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
-# Note: GrafanaAlert model is available for type hints if needed in the future
-# from src.alm.models import GrafanaAlert
+
 
 # Configuration
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
