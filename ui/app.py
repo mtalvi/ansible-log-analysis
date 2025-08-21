@@ -46,46 +46,48 @@ async def fetch_alerts_by_category(category: str) -> List[Dict[str, Any]]:
         return []
 
 
-def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> pd.DataFrame:
+def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Format alerts data for display in Gradio."""
     if not alerts:
-        return pd.DataFrame(columns=["Timestamp", "Summary", "Classification"])
+        return []
     
     formatted_data = []
     for alert in alerts:
-        # Parse timestamp
+        # Parse timestamp for sorting
         timestamp = alert.get("logTimestamp", "")
         if timestamp:
             try:
                 dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
                 formatted_timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
+                sort_timestamp = dt
             except (ValueError, TypeError):
                 formatted_timestamp = str(timestamp)
+                sort_timestamp = datetime.min
         else:
             formatted_timestamp = "Unknown"
+            sort_timestamp = datetime.min
         
         summary = alert.get("logSummary", "No summary available")
         classification = alert.get("logClassification", "Unclassified")
         
         formatted_data.append({
-            "Timestamp": formatted_timestamp,
             "Summary": summary,
-            "Classification": classification,
+            "Timestamp": formatted_timestamp,  # Keep for details view
+            "Classification": classification,  # Keep for details view
+            "Sort_Timestamp": sort_timestamp,  # For sorting purposes
             "Full Alert": alert  # Store full alert data for later use
         })
     
     # Sort by timestamp (newest first)
-    formatted_data.sort(key=lambda x: x["Timestamp"], reverse=True)
+    formatted_data.sort(key=lambda x: x["Sort_Timestamp"], reverse=True)
     
-    # Create DataFrame without the Full Alert column for display
-    df = pd.DataFrame([{k: v for k, v in item.items() if k != "Full Alert"} for item in formatted_data])
     return formatted_data
 
 
 def on_category_change(category: str):
     """Handle category dropdown change."""
     if not category or category == "Select a category":
-        return pd.DataFrame(columns=["Timestamp", "Summary", "Classification"]), ""
+        return pd.DataFrame(columns=["Summary"]), ""
     
     import asyncio
     
@@ -100,7 +102,13 @@ def on_category_change(category: str):
         global current_alerts_data
         current_alerts_data = formatted_data
         
-        return formatted_data, ""
+        # Create DataFrame with only Summary column for display
+        if formatted_data:
+            display_df = pd.DataFrame([{"Summary": item["Summary"]} for item in formatted_data])
+        else:
+            display_df = pd.DataFrame(columns=["Summary"])
+        
+        return display_df, ""
     finally:
         loop.close()
 
@@ -120,8 +128,10 @@ def on_log_select(evt: gr.SelectData):
     # Format the detailed view
     details = f"""
 **Timestamp:** {selected_alert.get("Timestamp", "Unknown")}
+
+
 **Classification:** {selected_alert.get("Classification", "Unclassified")}
-**Summary:** {selected_alert.get("Summary", "No summary")}
+
 
 **Full Log Message:**
 ```
@@ -159,19 +169,19 @@ def create_interface():
                 gr.Markdown("""
                 ### How to use:
                 1. Select a log category from the dropdown
-                2. Browse the alerts table (sorted by timestamp)
-                3. Click on any row to view full log details
+                2. Browse the log summaries table (sorted by timestamp)
+                3. Click on any summary to view full log details
                 """)
         
         with gr.Row():
             with gr.Column(scale=2):
                 alerts_table = gr.Dataframe(
-                    headers=["Timestamp", "Summary", "Classification"],
-                    datatype=["str", "str", "str"],
+                    headers=["Summary"],
+                    datatype=["str"],
                     interactive=False,
                     wrap=True,
                     # height=400,
-                    label="Alerts"
+                    label="Log Summaries"
                 )
             
             with gr.Column(scale=1):
