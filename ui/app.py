@@ -14,7 +14,8 @@ LOG_CATEGORIES = [
     "GPU Autoscaling & Node Management Issues",
     "Cert-Manager & Certificate Creation Issues", 
     "KubeVirt VM Provisioning & PVC Issues",
-    "Vault Pod & Secret Storage Issues"
+    "Vault Pod & Secret Storage Issues",
+    "Other"
 ]
 
 # Global variable to store all alerts
@@ -37,7 +38,7 @@ async def fetch_alerts_by_category(category: str) -> List[Dict[str, Any]]:
     """Fetch alerts filtered by category from the backend."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BACKEND_URL}/by-category/{category}")
+            response = await client.get(f"{BACKEND_URL}/grafana-alert/by-category/?category={category}")
             response.raise_for_status()
             return response.json()
     except Exception as e:
@@ -78,7 +79,7 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> pd.DataFrame:
     
     # Create DataFrame without the Full Alert column for display
     df = pd.DataFrame([{k: v for k, v in item.items() if k != "Full Alert"} for item in formatted_data])
-    return df, formatted_data
+    return formatted_data
 
 
 def on_category_change(category: str):
@@ -93,13 +94,13 @@ def on_category_change(category: str):
     asyncio.set_event_loop(loop)
     try:
         alerts = loop.run_until_complete(fetch_alerts_by_category(category))
-        df, formatted_data = format_alerts_for_display(alerts)
+        formatted_data = format_alerts_for_display(alerts)
         
         # Store formatted data globally for log detail access
         global current_alerts_data
         current_alerts_data = formatted_data
         
-        return df, ""
+        return formatted_data, ""
     finally:
         loop.close()
 
@@ -169,7 +170,7 @@ def create_interface():
                     datatype=["str", "str", "str"],
                     interactive=False,
                     wrap=True,
-                    height=400,
+                    # height=400,
                     label="Alerts"
                 )
             
@@ -211,7 +212,7 @@ def main():
         server_name="0.0.0.0",  # Allow external connections
         server_port=7860,       # Default Gradio port
         share=False,            # Set to True for public sharing
-        debug=True             # Enable debug mode
+        debug=True,             # Enable debug mode
     )
 
 
