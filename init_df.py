@@ -18,7 +18,7 @@ async def init_df():
     llm = get_llm()
 
     # Load the alerts
-    alerts = [alert for alert in ingest_alerts("data/logs/failed") if alert is not None]
+    alerts = [alert for alert in ingest_alerts("data/logs/failed") if alert is not None][:10]
     print(f'alerts finished {len(alerts)}')
     # Create log summaries
     log_summaries = await asyncio.gather(
@@ -36,8 +36,8 @@ async def init_df():
     
     step_by_step_solutions = await asyncio.gather(
         *[
-            suggest_step_by_step_solution(log_summary, llm)
-            for log_summary in log_summaries
+            suggest_step_by_step_solution(log_summary, alert.logMessage, llm)
+            for log_summary, alert in zip(log_summaries, alerts)
         ]
     )
     print(f'step by step solutions finished {len(step_by_step_solutions)}')
