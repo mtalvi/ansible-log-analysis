@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from typing import Literal
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -20,27 +21,34 @@ async def init_df():
     # Load the alerts
     alerts = [alert for alert in ingest_alerts("data/logs/failed") if alert is not None][:10]
     print(f'alerts finished {len(alerts)}')
+    
     # Create log summaries
+    start_time = time.time()
     log_summaries = await asyncio.gather(
         *[summarize_log(alert, llm) for alert in alerts]
     )
-    print(f'log_summaries finished {len(log_summaries)}')
+    elapsed_time = time.time() - start_time
+    print(f'log_summaries finished {len(log_summaries)} - Time: {elapsed_time:.2f}s')
     # Create log Category
+    start_time = time.time()
     log_categories = await asyncio.gather(
         *[
             categorize_log(log_summary, llm)
             for log_summary in log_summaries
         ]
     )
-    print(f'log categories finished {len(log_categories)}')
+    elapsed_time = time.time() - start_time
+    print(f'log categories finished {len(log_categories)} - Time: {elapsed_time:.2f}s')
     
+    start_time = time.time()
     step_by_step_solutions = await asyncio.gather(
         *[
             suggest_step_by_step_solution(log_summary, alert.logMessage, llm)
             for log_summary, alert in zip(log_summaries, alerts)
         ]
     )
-    print(f'step by step solutions finished {len(step_by_step_solutions)}')
+    elapsed_time = time.time() - start_time
+    print(f'step by step solutions finished {len(step_by_step_solutions)} - Time: {elapsed_time:.2f}s')
     
     async def add_alert(alert, log_summary, log_category, step_by_step_solution):
         async with get_session() as db:
@@ -51,6 +59,7 @@ async def init_df():
             await db.commit()
             await db.refresh(alert)
 
+    start_time = time.time()
     await asyncio.gather(
         *[
             add_alert(alert, log_summary, log_category, step_by_step_solution)
@@ -59,6 +68,8 @@ async def init_df():
             )
         ]
     )
+    elapsed_time = time.time() - start_time
+    print(f'database alerts added - Time: {elapsed_time:.2f}s')
 
 async def main():
     print(os.getenv("DATABASE_URL"))
