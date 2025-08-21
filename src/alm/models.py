@@ -1,16 +1,40 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 
-from sqlmodel import Field, SQLModel
+from sqlalchemy import JSON
+from sqlmodel import Column, Field, SQLModel
 
 
-class Log(SQLModel, table=True):
-    __tablename__ = "logs"
+class GrafanaAlert(SQLModel, table=True):
+    """Grafana alert payload for Loki log alerts."""
 
+    # # Optional ID field
     id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: Optional[datetime] = Field(default_factory=datetime.now)
-    level: Optional[str] = Field(default=None, max_length=50)
-    message: Optional[str] = Field(default=None)
-    source: Optional[str] = Field(default=None, max_length=255)
+
+    # Grouping information
+    logTimestamp: datetime
+    logMessage: str = Field(description="Original log message that triggered the alert")
+    logSummary: Optional[str] = Field(
+        default=None, description="Summary of the log message"
+    )
+    logClassification: Optional[str] = Field(
+        default=None, description="Classification of the log message"
+    )
+    stepByStepSolution: Optional[str] = Field(
+        default=None, description="Step by step solution to the problem"
+    )
+    labels: Dict[str, str] = Field(
+        default={},
+        description="Labels used for grouping alerts",
+        sa_column=Column(JSON),
+    )
+
+    # # Loki-specific fields that might be extracted from log content
+    # logLevel: Optional[str] = None  # Log level from Loki logs (info, warn, error, etc.)
+    # # logStream: Optional[str] = None  # Loki log stream identifier
+    # logSource: Optional[str] = None  # Source of the log (e.g., service name, pod name)
+
+    # log_type: Optional[str] = None
+    # task_name: Optional[str] = None
