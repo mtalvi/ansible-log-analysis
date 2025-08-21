@@ -102,11 +102,13 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
         
         summary = alert.get("logSummary", "No summary available")
         classification = alert.get("logClassification", "Unclassified")
+        category_cluster = alert.get("categoryCluster", "No cluster")
         
         formatted_data.append({
             "Summary": summary,
             "Timestamp": formatted_timestamp,  # Keep for details view
             "Classification": classification,  # Keep for details view
+            "Category Cluster": category_cluster,  # Keep for details view
             "Sort_Timestamp": sort_timestamp,  # For sorting purposes
             "Full Alert": alert  # Store full alert data for later use
         })
@@ -210,6 +212,9 @@ def on_log_select(evt: gr.SelectData):
 
 
 **Classification:** {selected_alert.get("Classification", "Unclassified")}
+
+
+**Category Cluster:** {selected_alert.get("Category Cluster", "No cluster")}
 
 
 **Full Log Message:**
