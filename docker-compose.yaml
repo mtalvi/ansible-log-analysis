@@ -1,54 +1,105 @@
 version: "3.3"
 
 networks:
-  loki:
+  alm:
 
 services:
-  loki:
-    image: grafana/loki:latest
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    networks:
-      - loki
+  # loki:
+  #   image: grafana/loki:latest
+  #   ports:
+  #     - "3100:3100"
+  #   command: -config.file=/etc/loki/local-config.yaml
+  #   networks:
+  #     - alm
 
-  promtail:
-    image: grafana/promtail:latest
-    user: "root"
-    volumes:
-      - ./config/loki:/temp
-      # - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - loki
+  # promtail:
+  #   image: grafana/promtail:latest
+  #   user: "root"
+  #   volumes:
+  #     - ./config/loki:/temp
+  #     # - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml
+  #   command: -config.file=/etc/promtail/config.yml
+  #   networks:
+  #     - alm
 
-  grafana:
+  # grafana:
+  #   environment:
+  #     - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+  #     - GF_AUTH_ANONYMOUS_ENABLED=true
+  #     - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+  #     - GF_FEATURE_TOGGLES_ENABLE=alertingSimplifiedRouting,alertingQueryAndExpressionsStepMode
+  #   entrypoint:
+  #     - sh
+  #     - -euc
+  #     - |
+  #       mkdir -p /etc/grafana/provisioning/datasources
+  #       cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+  #       apiVersion: 1
+  #       datasources:
+  #       - name: Loki
+  #         type: loki
+  #         access: proxy 
+  #         orgId: 1
+  #         url: http://loki:3100
+  #         basicAuth: false
+  #         isDefault: true
+  #         version: 1
+  #         editable: false
+  #       EOF
+  #       /run.sh
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - alm
+
+  postgres:
+    image: postgres:15
     environment:
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_FEATURE_TOGGLES_ENABLE=alertingSimplifiedRouting,alertingQueryAndExpressionsStepMode
-    entrypoint:
-      - sh
-      - -euc
-      - |
-        mkdir -p /etc/grafana/provisioning/datasources
-        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
-        apiVersion: 1
-        datasources:
-        - name: Loki
-          type: loki
-          access: proxy 
-          orgId: 1
-          url: http://loki:3100
-          basicAuth: false
-          isDefault: true
-          version: 1
-          editable: false
-        EOF
-        /run.sh
-    image: grafana/grafana:latest
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=logsdb
     ports:
-      - "3000:3000"
-    networks:
-      - loki
+      - "5432:5432"
+    # networks:
+    #   - alm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d logsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Containerfile
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - OPENAI_API_TOKEN=${OPENAI_API_TOKEN}
+  #     - OPENAI_API_ENDPOINT=${OPENAI_API_ENDPOINT}
+  #     - LANGSMITH_TRACING=${LANGSMITH_TRACING}
+  #     - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+  #     - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
+  #     - DATABASE_URL=${DATABASE_URL}
+  #   networks:
+  #     - alm
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  # frontend:
+  #   build:
+  #     context: ./ui
+  #     dockerfile: Containerfile
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - BACKEND_URL=${BACKEND_URL}
+  #   networks:
+  #     - alm
+volumes:
+  postgres_data:

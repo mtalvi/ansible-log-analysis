@@ -12,14 +12,15 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-ENV UV_PROJECT_ENVIRONMENT="/usr/local/"
+ENV UV_PROJECT_ENVIRONMENT="/usr/local/bin"
 # RUN uv sync --frozen --no-dev
 RUN uv pip install -r pyproject.toml
 
-COPY . .
+# Copy source code
+COPY src/ ./src/
 
-# Expose the Gradio port
-EXPOSE 7860
+# Expose port
+EXPOSE 8000
 
-# Run the Gradio app
-CMD ["python", "app.py"]
+# Default command (can be overridden in docker-compose)
+CMD ["uv", "run", "python", "-m", "uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
