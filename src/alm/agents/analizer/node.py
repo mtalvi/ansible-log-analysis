@@ -1,4 +1,8 @@
-from typing import Literal
+from typing import Literal, List
+
+from sentence_transformers import SentenceTransformer
+from sklearn.cluster import DBSCAN, MeanShift, AgglomerativeClustering
+from sklearn.metrics.pairwise import cosine_distances
 
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
@@ -66,15 +70,28 @@ async def categorize_log(log_summary, llm: ChatOpenAI):
     return log_category.category
 
 
+def get_category_cluster(classification: str) -> str:
+    """Map logClassification to categoryCluster for higher-level grouping."""
+    classification_to_cluster = {
+        "GPU Autoscaling Issues": "Infrastructure Scaling",
+        "Cert-Manager Webhook Issues": "Security & Certificates", 
+        "KubeVirt VM Provisioning Issues": "Virtualization",
+        "Vault Secret Storage Issues": "Secret Management",
+        "Other": "General Infrastructure",
+        "Other Infrastructure Issues": "General Infrastructure"
+    }
+    return classification_to_cluster.get(classification, "Unclassified")
+
+
 async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
     llm_suggest_step_by_step_solution = llm.with_structured_output(
         SuggestStepByStepSolutionSchema
     )
     log_suggest_step_by_step_solution = await llm_suggest_step_by_step_solution.ainvoke(
         [
-            {"role": "system", "content": "You Ansible expert and helpful assistant"},
+            {"role": "system", "content": "You are an Ansible expert and helpful assistant"},
             {
-                "role": "user",
+                "role": "user", 
                 "content": log_suggest_step_by_step_solution_user_message.replace(
                     "{log_summary}", log_summary
                 ).replace("{error_log}", log),
@@ -82,3 +99,53 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
         ]
     )
     return log_suggest_step_by_step_solution.step_by_step_solution
+
+
+def cluster_logs(log_summaries: List[str], model_name: str = "Qwen/Qwen3-Embedding-0.6B", algorithm: str = "dbscan"):
+    """
+    Cluster log summaries using sentence embeddings and various clustering algorithms.
+    
+    Args:
+        log_summaries: List of log summary strings
+        model_name: HuggingFace sentence transformer model name
+        algorithm: Clustering algorithm to use ('dbscan', 'meanshift', 'agglomerative')
+    
+    Returns:
+        List of cluster labels for each log summary (same order as input)
+    """
+    if not log_summaries:
+        return []
+    
+    # Initialize sentence transformer encoder
+    encoder = SentenceTransformer(model_name)
+    
+    # Encode all log summaries
+    embeddings = encoder.encode(log_summaries, convert_to_numpy=True)
+    
+    if algorithm.lower() == "dbscan":
+        # DBSCAN - Good for finding clusters of varying shapes and handling noise
+        # Uses cosine distance for text similarity
+        distance_matrix = cosine_distances(embeddings)
+        clusterer = DBSCAN(eps=0.3, min_samples=2, metric='precomputed')
+        cluster_labels = clusterer.fit_predict(distance_matrix)
+        
+    elif algorithm.lower() == "meanshift":
+        # Mean Shift - Automatically determines number of clusters
+        clusterer = MeanShift(bandwidth=None)  # Auto-estimate bandwidth
+        cluster_labels = clusterer.fit_predict(embeddings)
+        
+    elif algorithm.lower() == "agglomerative":
+        # Agglomerative Clustering with distance threshold
+        # Automatically determines number of clusters based on distance threshold
+        clusterer = AgglomerativeClustering(
+            n_clusters=None, 
+            distance_threshold=0.5,
+            linkage='average',
+            metric='cosine'
+        )
+        cluster_labels = clusterer.fit_predict(embeddings)
+        
+    else:
+        raise ValueError(f"Unsupported algorithm: {algorithm}. Choose from 'dbscan', 'meanshift', 'agglomerative'")
+    
+    return cluster_labels.tolist()
