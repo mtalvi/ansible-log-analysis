@@ -148,4 +148,4 @@ def cluster_logs(log_summaries: List[str], model_name: str = "Qwen/Qwen3-Embeddi
     else:
         raise ValueError(f"Unsupported algorithm: {algorithm}. Choose from 'dbscan', 'meanshift', 'agglomerative'")
     
-    return cluster_labels.tolist()
+    return clusterer, cluster_labels.tolist()
