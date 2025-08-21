@@ -22,6 +22,39 @@ LOG_CATEGORIES = [
 all_alerts: List[Dict[str, Any]] = []
 
 
+def extract_unique_label_keys(alerts: List[Dict[str, Any]]) -> List[str]:
+    """Extract unique label keys from all alerts."""
+    label_keys = set()
+    for alert in alerts:
+        labels = alert.get("labels", {})
+        label_keys.update(labels.keys())
+    return sorted(list(label_keys))
+
+
+def extract_unique_label_values(alerts: List[Dict[str, Any]], label_key: str) -> List[str]:
+    """Extract unique values for a specific label key from all alerts."""
+    label_values = set()
+    for alert in alerts:
+        labels = alert.get("labels", {})
+        if label_key in labels:
+            label_values.add(labels[label_key])
+    return sorted(list(label_values))
+
+
+def filter_alerts_by_label(alerts: List[Dict[str, Any]], label_key: str, label_value: str) -> List[Dict[str, Any]]:
+    """Filter alerts by a specific label key-value pair."""
+    if not label_key or not label_value:
+        return alerts
+    
+    filtered_alerts = []
+    for alert in alerts:
+        labels = alert.get("labels", {})
+        if labels.get(label_key) == label_value:
+            filtered_alerts.append(alert)
+    
+    return filtered_alerts
+
+
 async def fetch_all_alerts() -> List[Dict[str, Any]]:
     """Fetch all Grafana alerts from the backend."""
     try:
@@ -87,7 +120,7 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
 def on_category_change(category: str):
     """Handle category dropdown change."""
     if not category or category == "Select a category":
-        return pd.DataFrame(columns=["Summary"]), ""
+        return pd.DataFrame(columns=["Summary"]), "", gr.update(choices=["No label key"], value="No label key"), gr.update(choices=["No label value"], value="No label value")
     
     import asyncio
     
@@ -98,9 +131,11 @@ def on_category_change(category: str):
         alerts = loop.run_until_complete(fetch_alerts_by_category(category))
         formatted_data = format_alerts_for_display(alerts)
         
-        # Store formatted data globally for log detail access
-        global current_alerts_data
+        # Store data globally
+        global current_alerts_data, current_category_alerts, current_label_keys
         current_alerts_data = formatted_data
+        current_category_alerts = alerts
+        current_label_keys = extract_unique_label_keys(alerts)
         
         # Create DataFrame with only Summary column for display
         if formatted_data:
@@ -108,9 +143,53 @@ def on_category_change(category: str):
         else:
             display_df = pd.DataFrame(columns=["Summary"])
         
-        return display_df, ""
+        # Update label key dropdown
+        label_key_choices = ["No label key"] + current_label_keys
+        label_key_update = gr.update(choices=label_key_choices, value="No label key")
+        label_value_update = gr.update(choices=["No label value"], value="No label value")
+        
+        return display_df, "", label_key_update, label_value_update
     finally:
         loop.close()
+
+
+def on_label_key_change(label_key: str):
+    """Handle label key dropdown change."""
+    global current_category_alerts
+    
+    if not label_key or label_key == "No label key" or not current_category_alerts:
+        return gr.update(choices=["No label value"], value="No label value")
+    
+    # Extract unique values for the selected label key
+    label_values = extract_unique_label_values(current_category_alerts, label_key)
+    label_value_choices = ["No label value"] + label_values
+    
+    return gr.update(choices=label_value_choices, value="No label value")
+
+
+def on_label_filter_change(label_key: str, label_value: str):
+    """Handle label filtering when label key or value changes."""
+    global current_category_alerts, current_alerts_data
+    
+    if not current_category_alerts:
+        return pd.DataFrame(columns=["Summary"])
+    
+    # Apply label filtering if both key and value are selected
+    if label_key and label_key != "No label key" and label_value and label_value != "No label value":
+        filtered_alerts = filter_alerts_by_label(current_category_alerts, label_key, label_value)
+    else:
+        filtered_alerts = current_category_alerts
+    
+    # Format and update display
+    formatted_data = format_alerts_for_display(filtered_alerts)
+    current_alerts_data = formatted_data
+    
+    if formatted_data:
+        display_df = pd.DataFrame([{"Summary": item["Summary"]} for item in formatted_data])
+    else:
+        display_df = pd.DataFrame(columns=["Summary"])
+    
+    return display_df
 
 
 def on_log_select(evt: gr.SelectData):
@@ -145,8 +224,10 @@ def on_log_select(evt: gr.SelectData):
     return details.strip()
 
 
-# Global variable to store current alerts data
+# Global variables to store current alerts data and filtering state
 current_alerts_data = []
+current_category_alerts = []  # Store alerts from current category
+current_label_keys = []  # Store available label keys
 
 
 def create_interface():
@@ -169,9 +250,25 @@ def create_interface():
                 gr.Markdown("""
                 ### How to use:
                 1. Select a log category from the dropdown
-                2. Browse the log summaries table (sorted by timestamp)
-                3. Click on any summary to view full log details
+                2. Optionally filter by labels using the dropdowns on the right
+                3. Browse the log summaries table (sorted by timestamp)
+                4. Click on any summary to view full log details
                 """)
+            
+            with gr.Column(scale=1):
+                label_key_dropdown = gr.Dropdown(
+                    choices=["No label key"],
+                    value="No label key",
+                    label="Label Key",
+                    info="Select a label key to filter by"
+                )
+                
+                label_value_dropdown = gr.Dropdown(
+                    choices=["No label value"],
+                    value="No label value",
+                    label="Label Value",
+                    info="Select a label value to filter by"
+                )
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -194,7 +291,19 @@ def create_interface():
         category_dropdown.change(
             fn=on_category_change,
             inputs=[category_dropdown],
-            outputs=[alerts_table, log_details]
+            outputs=[alerts_table, log_details, label_key_dropdown, label_value_dropdown]
+        )
+        
+        label_key_dropdown.change(
+            fn=on_label_key_change,
+            inputs=[label_key_dropdown],
+            outputs=[label_value_dropdown]
+        )
+        
+        label_value_dropdown.change(
+            fn=on_label_filter_change,
+            inputs=[label_key_dropdown, label_value_dropdown],
+            outputs=[alerts_table]
         )
         
         alerts_table.select(
