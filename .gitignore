@@ -202,3 +202,5 @@ __marimo__/
 
 # Data
 data/logs/
+
+.cursor/

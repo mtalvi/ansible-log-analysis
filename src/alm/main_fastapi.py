@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
+import os
 import pkgutil
 from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import APIRouter, FastAPI
 
@@ -50,9 +56,17 @@ def _include_route_modules(app: FastAPI) -> None:
 
 app = create_app()
 
-if __name__ == "__main__":
-    app = create_app()
+
+def run_db():
+    # print(os.getenv("DATABASE_URL"))
+    # await init_tables()
+    # print('tables initialized')
+    # await init_df()
     import uvicorn
 
     # Run with: python -m uvicorn alm.main_fastapi:app --reload
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+
+if __name__ == "__main__":
+    run_db()
