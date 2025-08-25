@@ -9,19 +9,28 @@ repos:
   #       files: .*\.py$
   #       pass_filenames: false
 
-  - repo: local
-    hooks:
-      - id: isort
-        name: isort
-        entry: bash -c 'cd src/alm && isort . --skip=.venv || false'
-        language: system
-        files: .*\.py$
-        pass_filenames: false
+  # - repo: local
+  #   hooks:
+  #     - id: isort
+  #       name: isort
+  #       entry: bash -c 'cd src/alm && isort . --skip=.venv || false'
+  #       language: system
+  #       files: .*\.py$
+  #       pass_filenames: false
 
-  - repo: local
+  # - repo: local
+  #   hooks:
+  #     - id: black
+  #       name: black
+  #       entry: bash -c 'cd src/alm && black . --exclude=.venv || false'
+  #       language: system
+  #       files: .*\.py$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.12.10
     hooks:
-      - id: black
-        name: black
-        entry: bash -c 'cd src/alm && black . --exclude=.venv || false'
-        language: system
-        files: .*\.py$
+      # # Run the linter.
+      # - id: ruff
+      # Run the formatter.
+      - id: ruff-format
