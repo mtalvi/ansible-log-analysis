@@ -1,7 +1,6 @@
 import os
 import gradio as gr
 import httpx
-import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -11,11 +10,14 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Log Categories (as defined in README)
 LOG_CATEGORIES = [
-    "GPU Autoscaling & Node Management Issues",
-    "Cert-Manager & Certificate Creation Issues", 
-    "KubeVirt VM Provisioning & PVC Issues",
-    "Vault Pod & Secret Storage Issues",
-    "Other"
+    "Cloud Infrastructure / AWS Engineers",
+    "Kubernetes / OpenShift Cluster Admins",
+    "DevOps / CI/CD Engineers (Ansible + Automation Platform)",
+    "Networking / Security Engineers",
+    "System Administrators / OS Engineers",
+    "Application Developers / GitOps / Platform Engineers",
+    "Identity & Access Management (IAM) Engineers",
+    "Other / Miscellaneous",
 ]
 
 # Global variable to store all alerts
@@ -31,7 +33,9 @@ def extract_unique_label_keys(alerts: List[Dict[str, Any]]) -> List[str]:
     return sorted(list(label_keys))
 
 
-def extract_unique_label_values(alerts: List[Dict[str, Any]], label_key: str) -> List[str]:
+def extract_unique_label_values(
+    alerts: List[Dict[str, Any]], label_key: str
+) -> List[str]:
     """Extract unique values for a specific label key from all alerts."""
     label_values = set()
     for alert in alerts:
@@ -41,17 +45,19 @@ def extract_unique_label_values(alerts: List[Dict[str, Any]], label_key: str) ->
     return sorted(list(label_values))
 
 
-def filter_alerts_by_label(alerts: List[Dict[str, Any]], label_key: str, label_value: str) -> List[Dict[str, Any]]:
+def filter_alerts_by_label(
+    alerts: List[Dict[str, Any]], label_key: str, label_value: str
+) -> List[Dict[str, Any]]:
     """Filter alerts by a specific label key-value pair."""
     if not label_key or not label_value:
         return alerts
-    
+
     filtered_alerts = []
     for alert in alerts:
         labels = alert.get("labels", {})
         if labels.get(label_key) == label_value:
             filtered_alerts.append(alert)
-    
+
     return filtered_alerts
 
 
@@ -71,7 +77,9 @@ async def fetch_alerts_by_category(category: str) -> List[Dict[str, Any]]:
     """Fetch alerts filtered by category from the backend."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BACKEND_URL}/grafana-alert/by-category/?category={category}")
+            response = await client.get(
+                f"{BACKEND_URL}/grafana-alert/by-category/?category={category}"
+            )
             response.raise_for_status()
             return response.json()
     except Exception as e:
@@ -83,14 +91,14 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
     """Format alerts data for display in Gradio."""
     if not alerts:
         return []
-    
+
     formatted_data = []
-    for alert in alerts:
+    for i, alert in enumerate(alerts):
         # Parse timestamp for sorting
         timestamp = alert.get("logTimestamp", "")
         if timestamp:
             try:
-                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 formatted_timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
                 sort_timestamp = dt
             except (ValueError, TypeError):
@@ -99,58 +107,69 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
         else:
             formatted_timestamp = "Unknown"
             sort_timestamp = datetime.min
-        
+
         summary = alert.get("logSummary", "No summary available")
         classification = alert.get("logClassification", "Unclassified")
         category_cluster = alert.get("categoryCluster", "No cluster")
-        
-        formatted_data.append({
-            "Summary": summary,
-            "Timestamp": formatted_timestamp,  # Keep for details view
-            "Classification": classification,  # Keep for details view
-            "Category Cluster": category_cluster,  # Keep for details view
-            "Sort_Timestamp": sort_timestamp,  # For sorting purposes
-            "Full Alert": alert  # Store full alert data for later use
-        })
-    
+
+        formatted_data.append(
+            {
+                "Index": i,
+                "Summary": summary,
+                "Timestamp": formatted_timestamp,  # Keep for details view
+                "Classification": classification,  # Keep for details view
+                "Category Cluster": category_cluster,  # Keep for details view
+                "Sort_Timestamp": sort_timestamp,  # For sorting purposes
+                "Full Alert": alert,  # Store full alert data for later use
+            }
+        )
+
     # Sort by timestamp (newest first)
     formatted_data.sort(key=lambda x: x["Sort_Timestamp"], reverse=True)
-    
+
+    # Reassign indices after sorting
+    for i, item in enumerate(formatted_data):
+        item["Index"] = i
+
     return formatted_data
 
 
 def on_category_change(category: str):
     """Handle category dropdown change."""
     if not category or category == "Select a category":
-        return pd.DataFrame(columns=["Summary"]), "", gr.update(choices=["No label key"], value="No label key"), gr.update(choices=["No label value"], value="No label value")
-    
+        empty_html = generate_logs_html([])
+        return (
+            empty_html,
+            gr.update(choices=["No label key"], value="No label key"),
+            gr.update(choices=["No label value"], value="No label value"),
+        )
+
     import asyncio
-    
+
     # Run the async function
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         alerts = loop.run_until_complete(fetch_alerts_by_category(category))
         formatted_data = format_alerts_for_display(alerts)
-        
+
         # Store data globally
         global current_alerts_data, current_category_alerts, current_label_keys
         current_alerts_data = formatted_data
         current_category_alerts = alerts
         current_label_keys = extract_unique_label_keys(alerts)
-        
-        # Create DataFrame with only Summary column for display
-        if formatted_data:
-            display_df = pd.DataFrame([{"Summary": item["Summary"]} for item in formatted_data])
-        else:
-            display_df = pd.DataFrame(columns=["Summary"])
-        
+
+        # Generate HTML for logs
+        logs_html = generate_logs_html(formatted_data)
+
         # Update label key dropdown
         label_key_choices = ["No label key"] + current_label_keys
         label_key_update = gr.update(choices=label_key_choices, value="No label key")
-        label_value_update = gr.update(choices=["No label value"], value="No label value")
-        
-        return display_df, "", label_key_update, label_value_update
+        label_value_update = gr.update(
+            choices=["No label value"], value="No label value"
+        )
+
+        return logs_html, label_key_update, label_value_update
     finally:
         loop.close()
 
@@ -158,75 +177,228 @@ def on_category_change(category: str):
 def on_label_key_change(label_key: str):
     """Handle label key dropdown change."""
     global current_category_alerts
-    
+
     if not label_key or label_key == "No label key" or not current_category_alerts:
         return gr.update(choices=["No label value"], value="No label value")
-    
+
     # Extract unique values for the selected label key
     label_values = extract_unique_label_values(current_category_alerts, label_key)
     label_value_choices = ["No label value"] + label_values
-    
+
     return gr.update(choices=label_value_choices, value="No label value")
 
 
 def on_label_filter_change(label_key: str, label_value: str):
     """Handle label filtering when label key or value changes."""
     global current_category_alerts, current_alerts_data
-    
+
     if not current_category_alerts:
-        return pd.DataFrame(columns=["Summary"])
-    
+        return generate_logs_html([])
+
     # Apply label filtering if both key and value are selected
-    if label_key and label_key != "No label key" and label_value and label_value != "No label value":
-        filtered_alerts = filter_alerts_by_label(current_category_alerts, label_key, label_value)
+    if (
+        label_key
+        and label_key != "No label key"
+        and label_value
+        and label_value != "No label value"
+    ):
+        filtered_alerts = filter_alerts_by_label(
+            current_category_alerts, label_key, label_value
+        )
     else:
         filtered_alerts = current_category_alerts
-    
+
     # Format and update display
     formatted_data = format_alerts_for_display(filtered_alerts)
     current_alerts_data = formatted_data
-    
-    if formatted_data:
-        display_df = pd.DataFrame([{"Summary": item["Summary"]} for item in formatted_data])
-    else:
-        display_df = pd.DataFrame(columns=["Summary"])
-    
-    return display_df
+
+    # Generate HTML for logs
+    logs_html = generate_logs_html(formatted_data)
+
+    return logs_html
 
 
-def on_log_select(evt: gr.SelectData):
-    """Handle log summary selection to show full log message."""
-    global current_alerts_data
-    
-    if not current_alerts_data or evt.index[0] >= len(current_alerts_data):
-        return "No log details available."
-    
-    selected_alert = current_alerts_data[evt.index[0]]
-    full_alert = selected_alert.get("Full Alert", {})
-    
-    log_message = full_alert.get("logMessage", "No log message available")
-    
-    # Format the detailed view
-    details = f"""
-**Timestamp:** {selected_alert.get("Timestamp", "Unknown")}
+def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
+    """Generate HTML for expandable log items."""
+    if not alerts_data:
+        return """
+        <div style="text-align: center; padding: 3rem; color: #94a3b8;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+            <h3 style="color: #cbd5e1; margin-bottom: 0.5rem;">No logs found</h3>
+            <p style="margin: 0;">Select a category to view log summaries</p>
+        </div>
+        """
 
+    html_parts = []
+    for i, alert_data in enumerate(alerts_data):
+        full_alert = alert_data.get("Full Alert", {})
+        summary = alert_data.get("Summary", "No summary available")
+        timestamp = alert_data.get("Timestamp", "Unknown")
+        classification = alert_data.get("Classification", "Unclassified")
+        category_cluster = alert_data.get("Category Cluster", "No cluster")
 
-**Classification:** {selected_alert.get("Classification", "Unclassified")}
+        # Get classification color and badge
+        classification_color = (
+            "#10b981" if classification != "Unclassified" else "#f59e0b"
+        )
+        class_badge = "✅" if classification != "Unclassified" else "❓"
 
+        # Truncate summary for display
+        display_summary = summary if len(summary) <= 120 else summary[:117] + "..."
 
-**Category Cluster:** {selected_alert.get("Category Cluster", "No cluster")}
+        # Format labels
+        labels_html = ""
+        if full_alert.get("labels"):
+            labels_list = [
+                f'<span style="display: inline-block; background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #475569; padding: 0.25rem 0.5rem; border-radius: 0.375rem; margin: 0.125rem; font-size: 0.875rem;"><strong style="color: #cbd5e1;">{k}:</strong> {v}</span>'
+                for k, v in full_alert.get("labels", {}).items()
+            ]
+            labels_html = "".join(labels_list)
+        else:
+            labels_html = '<span style="color: #94a3b8;">No labels available</span>'
 
+        log_message = full_alert.get("logMessage", "No log message available")
 
-**Full Log Message:**
-```
-{log_message}
-```
+        # Create the expandable log item using CSS-only toggle
+        log_item_html = f"""
+        <div class="log-item" style="margin-bottom: 1rem;">
+            <!-- Hidden checkbox for toggle functionality -->
+            <input type="checkbox" id="toggle-{i}" style="display: none;">
+            
+            <!-- Log Summary (clickable label) -->
+            <label for="toggle-{i}" class="log-summary" style="display: block; background: rgba(30, 41, 59, 0.8); border: 2px solid #475569; border-radius: 0.75rem; padding: 1.25rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3); backdrop-filter: blur(10px);">
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <!-- Status indicator -->
+                    <div style="flex-shrink: 0; margin-top: 0.25rem;">
+                        <span style="font-size: 1.5rem;">{class_badge}</span>
+                    </div>
+                    
+                    <!-- Main content -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; justify-content: between; align-items: flex-start; gap: 1rem; margin-bottom: 0.75rem;">
+                            <div style="flex: 1;">
+                                <p style="margin: 0; font-size: 1rem; line-height: 1.5; color: #f1f5f9; font-weight: 500;">{display_summary}</p>
+                            </div>
+                            <div style="flex-shrink: 0; text-align: right;">
+                                <div style="font-size: 0.875rem; color: #cbd5e1; margin-bottom: 0.25rem;">⏰ {timestamp}</div>
+                                <span style="background: {classification_color}; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">{classification}</span>
+                </div>
+            </div>
+            
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">🎯 {category_cluster}</span>
+                            <span class="toggle-text" style="color: #94a3b8; font-size: 0.875rem;">▼ Click to expand details</span>
+                        </div>
+                    </div>
+                </div>
+            </label>
+            
+            <!-- Log Details (shown when checkbox is checked) -->
+            <div class="log-details-content" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #475569; border-top: none; border-radius: 0 0 0.75rem 0.75rem; padding: 1.5rem; max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; backdrop-filter: blur(10px);">
+                <div style="border-bottom: 2px solid #475569; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <span style="font-size: 1.25rem;">⏰</span>
+                                <strong style="color: #f1f5f9;">Timestamp</strong>
+                            </div>
+                            <code style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; display: block; border: 1px solid #475569;">{timestamp}</code>
+                </div>
+                <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.25rem;">🎯</span>
+                                <strong style="color: #f1f5f9;">Category Cluster</strong>
+                            </div>
+                            <span style="background: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">{category_cluster}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                <span style="font-size: 1.25rem;">📄</span>
+                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Full Log Message</strong>
+            </div>
+                    <div style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #475569; border-radius: 0.5rem; padding: 1rem; font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">{log_message}</div>
+        </div>
+        
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                <span style="font-size: 1.25rem;">🏷️</span>
+                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Labels</strong>
+            </div>
+            <div style="line-height: 1.8;">
+                {labels_html}
+            </div>
+        </div>
+    </div>
+        </div>
+        """
 
-**Labels:**
-{chr(10).join([f"- {k}: {v}" for k, v in full_alert.get("labels", {}).items()]) if full_alert.get("labels") else "No labels"}
+        html_parts.append(log_item_html)
+
+    # Add CSS for toggle functionality
+    toggle_css = """
+    <style>
+        /* CSS-only toggle functionality */
+        input[type="checkbox"] {
+            display: none !important;
+        }
+        
+        /* Default state: details hidden */
+        .log-details-content {
+            max-height: 0 !important;
+            overflow: hidden !important;
+            padding: 0 1.5rem !important;
+            border-width: 0 !important;
+            transition: all 0.4s ease !important;
+        }
+        
+        /* When checkbox is checked: show details */
+        input[type="checkbox"]:checked ~ .log-details-content {
+            max-height: 1000px !important;
+            padding: 1.5rem !important;
+            border-width: 2px !important;
+            border-color: #475569 !important;
+            border-style: solid !important;
+            border-top: none !important;
+        }
+        
+        /* Change arrow when expanded */
+        input[type="checkbox"]:checked ~ label .toggle-text::before {
+            content: "▲ Click to collapse details";
+        }
+        
+        input[type="checkbox"]:not(:checked) ~ label .toggle-text::before {
+            content: "▼ Click to expand details";
+        }
+        
+        .toggle-text {
+            display: none;
+        }
+        
+        .toggle-text::before {
+            display: inline;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+        
+        /* Enhanced hover effects for clickable labels */
+        .log-summary:hover {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 4px 8px rgba(59,130,246,0.25) !important;
+            transform: translateY(-1px);
+            background: rgba(30, 41, 59, 0.95) !important;
+        }
+        
+        /* Smooth transitions */
+        .log-summary {
+            transition: all 0.2s ease !important;
+        }
+    </style>
     """
-    
-    return details.strip()
+
+    return toggle_css + "\n".join(html_parts)
 
 
 # Global variables to store current alerts data and filtering state
@@ -237,89 +409,362 @@ current_label_keys = []  # Store available label keys
 
 def create_interface():
     """Create and configure the Gradio interface."""
+
+    # Custom CSS for modern, beautiful dark theme
+    custom_css = """
+    /* Main container styling */
+    .gradio-container {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        color: #e2e8f0 !important;
+        overflow: visible !important;
+    }
     
-    with gr.Blocks(title="Ansible Logs Viewer", theme=gr.themes.Soft()) as demo:
-        gr.Markdown("# 🔍 Ansible Logs Viewer")
-        gr.Markdown("Browse and analyze Grafana alerts by category")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                category_dropdown = gr.Dropdown(
-                    choices=["Select a category"] + LOG_CATEGORIES,
-                    value="Select a category",
-                    label="Log Category",
-                    info="Select a category to filter alerts"
-                )
-                
-                # Info section
-                gr.Markdown("""
-                ### How to use:
-                1. Select a log category from the dropdown
-                2. Optionally filter by labels using the dropdowns on the right
-                3. Browse the log summaries table (sorted by timestamp)
-                4. Click on any summary to view full log details
-                """)
-            
-            with gr.Column(scale=1):
-                label_key_dropdown = gr.Dropdown(
-                    choices=["No label key"],
-                    value="No label key",
-                    label="Label Key",
-                    info="Select a label key to filter by"
-                )
-                
-                label_value_dropdown = gr.Dropdown(
-                    choices=["No label value"],
-                    value="No label value",
-                    label="Label Value",
-                    info="Select a label value to filter by"
-                )
-        
-        with gr.Row():
-            with gr.Column(scale=2):
-                alerts_table = gr.Dataframe(
-                    headers=["Summary"],
-                    datatype=["str"],
-                    interactive=False,
-                    wrap=True,
-                    # height=400,
-                    label="Log Summaries"
-                )
-            
-            with gr.Column(scale=1):
-                log_details = gr.Markdown(
-                    value="Select an alert from the table to view details.",
-                    label="Log Details"
-                )
-        
+    /* Ensure parent elements allow dropdown overflow */
+    .gradio-container > * {
+        overflow: visible !important;
+    }
+    
+    .gradio-container .block {
+        overflow: visible !important;
+    }
+    
+    .gradio-container .wrap {
+        overflow: visible !important;
+    }
+    
+    /* Header styling */
+    .main-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
+        text-align: center;
+    }
+    
+    .main-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .main-header p {
+        font-size: 1.2rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+    
+    /* Card styling */
+    .card {
+        background: rgba(30, 41, 59, 0.8);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(71, 85, 105, 0.3);
+        margin-bottom: 1.5rem;
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    .info-card {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        border-left: 4px solid #3b82f6;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin: 1rem 0;
+    }
+    
+    /* Input styling */
+    .gradio-dropdown {
+        border-radius: 0.75rem !important;
+        border: 2px solid #475569 !important;
+        background: #334155 !important;
+        color: #e2e8f0 !important;
+        transition: all 0.2s ease !important;
+        position: relative !important;
+    }
+    
+    .gradio-dropdown:hover,
+    .gradio-dropdown:focus,
+    .gradio-dropdown:focus-within {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    /* Dropdown menu styling */
+    .gradio-dropdown .wrap {
+        position: relative !important;
+    }
+    
+    .gradio-dropdown .dropdown {
+        position: absolute !important;
+        background: #334155 !important;
+        border: 2px solid #475569 !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .gradio-dropdown .dropdown .item {
+        color: #e2e8f0 !important;
+        background: transparent !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .gradio-dropdown .dropdown .item:hover {
+        background: rgba(59, 130, 246, 0.2) !important;
+        color: #f1f5f9 !important;
+    }
+    
+    /* Specific targeting for dropdown containers */
+    .gradio-container .block.gradio-dropdown {
+        position: relative !important;
+    }
+    
+    .gradio-container .dropdown-content {
+        position: absolute !important;
+        background: #1e293b !important;
+        border: 1px solid #475569 !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    /* Additional Gradio dropdown fixes */
+    .gradio-container [data-testid="dropdown"] {
+        position: relative !important;
+    }
+    
+    .gradio-container [data-testid="dropdown"] .dropdown-menu {
+        position: absolute !important;
+        background: #1e293b !important;
+        border: 2px solid #475569 !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+        backdrop-filter: blur(15px) !important;
+    }
+    
+    .gradio-container [data-testid="dropdown"] .dropdown-option {
+        color: #e2e8f0 !important;
+        background: transparent !important;
+        padding: 0.75rem 1rem !important;
+        transition: all 0.2s ease !important;
+        border-bottom: 1px solid rgba(71, 85, 105, 0.3) !important;
+    }
+    
+    .gradio-container [data-testid="dropdown"] .dropdown-option:last-child {
+        border-bottom: none !important;
+    }
+    
+    .gradio-container [data-testid="dropdown"] .dropdown-option:hover {
+        background: rgba(59, 130, 246, 0.2) !important;
+        color: #f1f5f9 !important;
+    }
+    
+
+    
+    /* Log items styling */
+    .logs-container {
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 0.5rem;
+        position: relative;
+    }
+    
+    .log-item {
+        margin-bottom: 1rem;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .log-summary {
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .log-summary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(59,130,246,0.25);
+    }
+    
+    .log-details {
+        border-top: 2px solid #475569;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        position: relative;
+    }
+    
+    /* Button styling */
+    button {
+        border-radius: 0.5rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    /* Markdown content styling */
+    .markdown {
+        line-height: 1.6;
+    }
+    
+    /* Footer styling */
+    .footer {
+        text-align: center;
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: rgba(30, 41, 59, 0.8);
+        border-radius: 0.75rem;
+        border: 1px solid #475569;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Section headers */
+    .section-header {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #f1f5f9;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .status-online {
+        background-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    """
+
+    with gr.Blocks(
+        title="Ansible Logs Viewer",
+        theme=gr.themes.Soft(
+            primary_hue="blue",
+            secondary_hue="slate",
+            neutral_hue="slate",
+            font=gr.themes.GoogleFont("Inter"),
+            font_mono=gr.themes.GoogleFont("JetBrains Mono"),
+        ).set(
+            body_background_fill="*neutral_950",
+            body_text_color="*neutral_200",
+            block_background_fill="*neutral_900",
+            block_border_color="*neutral_700",
+            input_background_fill="*neutral_800",
+            button_primary_background_fill="*primary_600",
+            button_primary_text_color="white",
+        ),
+        css=custom_css,
+    ) as demo:
+        # Beautiful header
+        with gr.Column(elem_classes=["main-header"]):
+            gr.HTML("""
+            <div class="animate-fade-in">
+                <h1>🚀 Ansible Logs Viewer</h1>
+                <p>Advanced log analysis and monitoring dashboard</p>
+            </div>
+            """)
+
+        # Filters section
+        with gr.Column(elem_classes=["card"]):
+            gr.HTML('<h3 class="section-header">🎯 Filters & Controls</h3>')
+
+            with gr.Row():
+                with gr.Column(scale=2):
+                    category_dropdown = gr.Dropdown(
+                        choices=["Select a category"] + LOG_CATEGORIES,
+                        value="Select a category",
+                        label="📂 Log Category",
+                        info="Choose a category to filter and analyze alerts",
+                        elem_classes=["category-selector"],
+                    )
+
+                with gr.Column(scale=1):
+                    label_key_dropdown = gr.Dropdown(
+                        choices=["No label key"],
+                        value="No label key",
+                        label="🏷️ Label Key",
+                        info="Filter by specific label keys",
+                        elem_classes=["filter-dropdown"],
+                    )
+
+                with gr.Column(scale=1):
+                    label_value_dropdown = gr.Dropdown(
+                        choices=["No label value"],
+                        value="No label value",
+                        label="🎯 Label Value",
+                        info="Filter by label values",
+                        elem_classes=["filter-dropdown"],
+                    )
+
+        # Main content area
+        with gr.Column():
+            gr.HTML('<h3 class="section-header">📊 Interactive Log Viewer</h3>')
+            logs_display = gr.HTML(
+                value="""
+                <div style="text-align: center; padding: 3rem; color: #94a3b8;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+                    <h3 style="color: #cbd5e1; margin-bottom: 0.5rem;">No logs found</h3>
+                    <p style="margin: 0;">Select a category to view log summaries with expandable details</p>
+                        </div>
+                        """,
+                elem_classes=["logs-container"],
+            )
+
         # Event handlers
         category_dropdown.change(
             fn=on_category_change,
             inputs=[category_dropdown],
-            outputs=[alerts_table, log_details, label_key_dropdown, label_value_dropdown]
+            outputs=[logs_display, label_key_dropdown, label_value_dropdown],
         )
-        
+
         label_key_dropdown.change(
             fn=on_label_key_change,
             inputs=[label_key_dropdown],
-            outputs=[label_value_dropdown]
+            outputs=[label_value_dropdown],
         )
-        
+
         label_value_dropdown.change(
             fn=on_label_filter_change,
             inputs=[label_key_dropdown, label_value_dropdown],
-            outputs=[alerts_table]
+            outputs=[logs_display],
         )
-        
-        alerts_table.select(
-            fn=on_log_select,
-            outputs=[log_details]
-        )
-        
+
         # Footer
-        gr.Markdown("---")
-        gr.Markdown("**Backend URL:** " + BACKEND_URL)
-    
+        with gr.Column(elem_classes=["footer"]):
+            gr.HTML(f"""
+            <div style="text-align: center;">
+                <div class="status-indicator status-online"></div>
+                <strong>Backend Connected:</strong> <code>{BACKEND_URL}</code>
+                <br><br>
+                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
+                    🔒 Secure • 🚀 Fast • 📊 Real-time Analytics
+                </p>
+            </div>
+            """)
+
     return demo
 
 
@@ -327,19 +772,18 @@ def main():
     """Main function to launch the Gradio app."""
     print("🚀 Starting Ansible Logs Viewer...")
     print(f"Backend URL: {BACKEND_URL}")
-    
+
     # Create and launch the interface
     demo = create_interface()
-    
+
     # Launch the app
     demo.launch(
         server_name="0.0.0.0",  # Allow external connections
-        server_port=7860,       # Default Gradio port
-        share=False,            # Set to True for public sharing
-        debug=True,             # Enable debug mode
+        server_port=7860,  # Default Gradio port
+        share=False,  # Set to True for public sharing
+        debug=True,  # Enable debug mode
     )
 
 
 if __name__ == "__main__":
     main()
-
