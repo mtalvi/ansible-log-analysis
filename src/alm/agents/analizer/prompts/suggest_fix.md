@@ -20,7 +20,7 @@ You are an expert Ansible troubleshooter specializing in OpenShift environments.
 
 **Error Log:**
 ```
-failed: [bastion.ml2lq.internal] (item=clusterissuer.yaml.j2) => {"ansible_loop_var": "item", "changed": false, "item": "clusterissuer.yaml.j2", "msg": "Failed to create object: b'{\"kind\":\"Status\",\"apiVersion\":\"v1\",\"metadata\":{},\"status\":\"Failure\",\"message\":\"Internal error occurred: failed calling webhook \\\"webhook.cert-manager.io\\\": failed to call webhook: Post \\\"https://cert-manager-webhook.cert-manager.svc:443/validate?timeout=30s\\\": no endpoints available for service \\\"cert-manager-webhook\\\"\",\"reason\":\"InternalError\",\"details\":{\"causes\":[{\"message\":\"failed calling webhook \\\"webhook.cert-manager.io\\\": failed to call webhook: Post \\\"https://cert-manager-webhook.cert-manager.svc:443/validate?timeout=30s\\\": no endpoints available for service \\\"cert-manager-webhook\\\"\"}]},\"code\":500}\\n'", "reason": "Internal Server Error"}
+{"ansible_loop_var": "item", "changed": false, "item": "clusterissuer.yaml.j2", "msg": "Failed to create object: b'{\"kind\":\"Status\",\"apiVersion\":\"v1\",\"metadata\":{},\"status\":\"Failure\",\"message\":\"Internal error occurred: failed calling webhook \\\"webhook.cert-manager.io\\\": failed to call webhook: Post \\\"https://cert-manager-webhook.cert-manager.svc:443/validate?timeout=30s\\\": no endpoints available for service \\\"cert-manager-webhook\\\"\",\"reason\":\"InternalError\",\"details\":{\"causes\":[{\"message\":\"failed calling webhook \\\"webhook.cert-manager.io\\\": failed to call webhook: Post \\\"https://cert-manager-webhook.cert-manager.svc:443/validate?timeout=30s\\\": no endpoints available for service \\\"cert-manager-webhook\\\"\"}]},\"code\":500}\\n'", "reason": "Internal Server Error"}
 ```
 
 **Root Cause Analysis:**
@@ -88,7 +88,7 @@ The cert-manager webhook service has no available endpoints, meaning the cert-ma
 
 **Error Log:**
 ```
-fatal: [worker-node-01]: UNREACHABLE! => {"changed": false, "msg": "Failed to connect to the host via ssh: ssh: connect to host 10.0.1.100 port 22: Connection refused", "unreachable": true}
+{"changed": false, "msg": "Failed to connect to the host via ssh: ssh: connect to host 10.0.1.100 port 22: Connection refused", "unreachable": true}
 ```
 
 **Root Cause Analysis:**
@@ -146,7 +146,7 @@ SSH connection to the OpenShift node is being refused, likely due to SSH service
 
 **Error Log:**
 ```
-fatal: [openshift-cluster]: FAILED! => {"changed": false, "msg": "Could not create object: Forbidden: User 'ansible-user' cannot create deployments.apps in project 'myapp'", "reason": "Forbidden"}
+{"changed": false, "msg": "Could not create object: Forbidden: User 'ansible-user' cannot create deployments.apps in project 'myapp'", "reason": "Forbidden"}
 ```
 
 **Root Cause Analysis:**
