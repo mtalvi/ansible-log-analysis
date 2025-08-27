@@ -10,16 +10,26 @@ from src.alm.patterns.ingestion import (
     AAP_LOG_FATAL,
     TESTING_LOG_ERROR,
     TESTING_LOG_FATAL,
+    TESTING_LOG_FAILED,
 )
 
 
 def _filter_matches_end_with_ignoring(matches: list[re.Match]) -> list[re.Match]:
     """Filter matches that end with 'ignoring'."""
     return [
-        m
-        for m in matches
-        if not m.groupdict().get("logmessage", "").endswith("ignoring")
+        match
+        for match in matches
+        if not match.groupdict().get("logmessage", "").endswith("ignoring")
     ]
+
+
+def shrink_long_logs(log: str) -> str:
+    """Shrink long logs."""
+    # used for very long logs that have a lot of redundent data
+    # This should be improve later to be more accurate
+    # TODO: improve this
+    # NOTE: see the 30_000 char trim
+    return log.split(r'"properties": ')[0][:30_000] if len(log) > 30_000 else log
 
 
 def grafana_alert_mock(path: str) -> Optional[GrafanaAlert]:
@@ -35,6 +45,10 @@ def grafana_alert_mock(path: str) -> Optional[GrafanaAlert]:
             re.finditer(TESTING_LOG_FATAL, content, re.MULTILINE)
         )
         if not matches:
+            if not matches:
+                matches = _filter_matches_end_with_ignoring(
+                    re.finditer(TESTING_LOG_FAILED, content, re.MULTILINE)
+                )
             return None
 
     # Get the last match
@@ -48,7 +62,9 @@ def grafana_alert_mock(path: str) -> Optional[GrafanaAlert]:
             if groups.get("timestamp")
             else datetime.now()
         ),
-        logMessage=groups.get("logmessage", ""),  # Full matched text as the log message
+        logMessage=shrink_long_logs(
+            groups.get("logmessage", "")
+        ),  # Full matched text as the log message
         # logSummary=groups.get('logsummary', ''),
         # logClassification=groups.get('logclassification', ''),
         labels={
