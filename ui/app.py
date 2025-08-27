@@ -1,6 +1,7 @@
 import os
 import gradio as gr
 import httpx
+import markdown
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -243,8 +244,8 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
         )
         class_badge = "✅" if classification != "Unclassified" else "❓"
 
-        # Truncate summary for display
-        display_summary = summary if len(summary) <= 120 else summary[:117] + "..."
+        # Use full summary without truncation
+        display_summary = summary
 
         # Format labels
         labels_html = ""
@@ -258,6 +259,16 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
             labels_html = '<span style="color: #94a3b8;">No labels available</span>'
 
         log_message = full_alert.get("logMessage", "No log message available")
+        step_by_step_solution = full_alert.get("stepByStepSolution", "")
+
+        # Convert markdown to HTML if solution exists
+        if step_by_step_solution and step_by_step_solution.strip():
+            step_by_step_solution_html = markdown.markdown(
+                step_by_step_solution.strip(),
+                extensions=["fenced_code", "tables", "nl2br"],
+            )
+        else:
+            step_by_step_solution_html = ""
 
         # Create the expandable log item using CSS-only toggle
         log_item_html = f"""
@@ -266,7 +277,9 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
             <input type="checkbox" id="toggle-{i}" style="display: none;">
             
             <!-- Log Summary (clickable label) -->
-            <label for="toggle-{i}" class="log-summary" style="display: block; background: rgba(30, 41, 59, 0.8); border: 2px solid #475569; border-radius: 0.75rem; padding: 1.25rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3); backdrop-filter: blur(10px);">
+            <label for="toggle-{
+            i
+        }" class="log-summary" style="display: block; background: rgba(30, 41, 59, 0.8); border: 2px solid #475569; border-radius: 0.75rem; padding: 1.25rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3); backdrop-filter: blur(10px);">
                 <div style="display: flex; align-items: flex-start; gap: 1rem;">
                     <!-- Status indicator -->
                     <div style="flex-shrink: 0; margin-top: 0.25rem;">
@@ -277,16 +290,26 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
                     <div style="flex: 1; min-width: 0;">
                         <div style="display: flex; justify-content: between; align-items: flex-start; gap: 1rem; margin-bottom: 0.75rem;">
                             <div style="flex: 1;">
-                                <p style="margin: 0; font-size: 1rem; line-height: 1.5; color: #f1f5f9; font-weight: 500;">{display_summary}</p>
+                                <p style="margin: 0; font-size: 1rem; line-height: 1.5; color: #f1f5f9; font-weight: 500;">{
+            display_summary
+        }</p>
                             </div>
                             <div style="flex-shrink: 0; text-align: right;">
-                                <div style="font-size: 0.875rem; color: #cbd5e1; margin-bottom: 0.25rem;">⏰ {timestamp}</div>
-                                <span style="background: {classification_color}; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">{classification}</span>
+                                <div style="font-size: 0.875rem; color: #cbd5e1; margin-bottom: 0.25rem;">⏰ {
+            timestamp
+        }</div>
+                                <span style="background: {
+            classification_color
+        }; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">{
+            classification
+        }</span>
                 </div>
             </div>
             
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">🎯 {category_cluster}</span>
+                            <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">🎯 {
+            category_cluster
+        }</span>
                             <span class="toggle-text" style="color: #94a3b8; font-size: 0.875rem;">▼ Click to expand details</span>
                         </div>
                     </div>
@@ -302,35 +325,59 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
                                 <span style="font-size: 1.25rem;">⏰</span>
                                 <strong style="color: #f1f5f9;">Timestamp</strong>
                             </div>
-                            <code style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; display: block; border: 1px solid #475569;">{timestamp}</code>
-                </div>
-                <div>
+                            <code style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; display: block; border: 1px solid #475569;">{
+            timestamp
+        }</code>
+                        </div>
+                        <div>
                             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.25rem;">🎯</span>
+                                <span style="font-size: 1.25rem;">🎯</span>
                                 <strong style="color: #f1f5f9;">Category Cluster</strong>
                             </div>
-                            <span style="background: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">{category_cluster}</span>
+                            <span style="background: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">{
+            category_cluster
+        }</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <span style="font-size: 1.25rem;">📄</span>
+                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Full Log Message</strong>
+                    </div>
+                    <div style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #475569; border-radius: 0.5rem; padding: 1rem; font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">{
+            log_message
+        }</div>
+                </div>
+                
+                {
+            f'''
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <span style="font-size: 1.25rem;">🔧</span>
+                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Step-by-Step Solution</strong>
+                    </div>
+                    <div style="background: rgba(16, 185, 129, 0.1); color: #e2e8f0; border: 2px solid #10b981; border-radius: 0.5rem; padding: 1.5rem; font-size: 0.875rem; line-height: 1.6; max-height: 500px; overflow-y: auto; position: relative;">
+                        <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600;">SOLUTION</div>
+                        {step_by_step_solution_html}
+                    </div>
+                </div>
+                '''
+            if step_by_step_solution_html
+            else ""
+        }
+                
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <span style="font-size: 1.25rem;">🏷️</span>
+                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Labels</strong>
+                    </div>
+                    <div style="line-height: 1.8;">
+                        {labels_html}
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div style="margin-bottom: 1.5rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                <span style="font-size: 1.25rem;">📄</span>
-                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Full Log Message</strong>
-            </div>
-                    <div style="background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #475569; border-radius: 0.5rem; padding: 1rem; font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">{log_message}</div>
-        </div>
-        
-        <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                <span style="font-size: 1.25rem;">🏷️</span>
-                        <strong style="color: #f1f5f9; font-size: 1.1rem;">Labels</strong>
-            </div>
-            <div style="line-height: 1.8;">
-                {labels_html}
-            </div>
-        </div>
     </div>
         </div>
         """
@@ -612,6 +659,108 @@ def create_interface():
         line-height: 1.6;
     }
     
+    /* Enhanced markdown styling for solutions */
+    .log-details-content h1,
+    .log-details-content h2,
+    .log-details-content h3,
+    .log-details-content h4,
+    .log-details-content h5,
+    .log-details-content h6 {
+        color: #f1f5f9 !important;
+        margin: 1rem 0 0.5rem 0 !important;
+        font-weight: 600 !important;
+        border-bottom: 1px solid #475569 !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    .log-details-content h1 { font-size: 1.5rem !important; }
+    .log-details-content h2 { font-size: 1.25rem !important; }
+    .log-details-content h3 { font-size: 1.125rem !important; }
+    .log-details-content h4 { font-size: 1rem !important; }
+    
+    .log-details-content p {
+        margin: 0.75rem 0 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .log-details-content ul,
+    .log-details-content ol {
+        margin: 0.75rem 0 !important;
+        padding-left: 1.5rem !important;
+    }
+    
+    .log-details-content li {
+        margin: 0.25rem 0 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .log-details-content code {
+        background: rgba(30, 41, 59, 0.8) !important;
+        color: #fbbf24 !important;
+        padding: 0.125rem 0.375rem !important;
+        border-radius: 0.25rem !important;
+        font-size: 0.875rem !important;
+        border: 1px solid #475569 !important;
+    }
+    
+    .log-details-content pre {
+        background: rgba(15, 23, 42, 0.9) !important;
+        border: 2px solid #475569 !important;
+        border-radius: 0.5rem !important;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        overflow-x: auto !important;
+    }
+    
+    .log-details-content pre code {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .log-details-content blockquote {
+        border-left: 4px solid #3b82f6 !important;
+        background: rgba(59, 130, 246, 0.1) !important;
+        padding: 0.75rem 1rem !important;
+        margin: 1rem 0 !important;
+        border-radius: 0.375rem !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .log-details-content table {
+        border-collapse: collapse !important;
+        margin: 1rem 0 !important;
+        width: 100% !important;
+    }
+    
+    .log-details-content th,
+    .log-details-content td {
+        border: 1px solid #475569 !important;
+        padding: 0.5rem !important;
+        text-align: left !important;
+    }
+    
+    .log-details-content th {
+        background: rgba(30, 41, 59, 0.8) !important;
+        color: #f1f5f9 !important;
+        font-weight: 600 !important;
+    }
+    
+    .log-details-content td {
+        color: #e2e8f0 !important;
+    }
+    
+    .log-details-content strong {
+        color: #f1f5f9 !important;
+        font-weight: 600 !important;
+    }
+    
+    .log-details-content em {
+        color: #cbd5e1 !important;
+        font-style: italic !important;
+    }
+    
     /* Footer styling */
     .footer {
         text-align: center;
@@ -696,7 +845,7 @@ def create_interface():
                     category_dropdown = gr.Dropdown(
                         choices=["Select a category"] + LOG_CATEGORIES,
                         value="Select a category",
-                        label="📂 Log Category",
+                        label="📂 Expert Field",
                         info="Choose a category to filter and analyze alerts",
                         elem_classes=["category-selector"],
                     )
