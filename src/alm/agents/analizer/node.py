@@ -101,8 +101,9 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
             {
                 "role": "user",
                 "content": log_suggest_step_by_step_solution_user_message.replace(
-                    "{log_summary}", log_summary
-                ).replace("{error_log}", log),
+                    "{log_summary}",
+                    log_summary,  # currently disabled
+                ).replace("{ansible_error_log}", log),
             },
         ]
     )

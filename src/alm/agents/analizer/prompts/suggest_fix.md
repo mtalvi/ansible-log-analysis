@@ -205,6 +205,8 @@ The Ansible user lacks sufficient RBAC permissions to create Deployment resource
 Now analyze the following Ansible error log and provide fix suggestions following the format above, using OpenShift CLI (`oc`) commands and considering OpenShift-specific features:
 
 **Error Log:**
+```
 {ansible_error_log}
+```
 
 **Root Cause Analysis:**
