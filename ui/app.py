@@ -492,11 +492,8 @@ def generate_clusters_html(
                         <!-- Cluster info -->
                         <div style="flex: 1; min-width: 0;">
                             <h4 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 600; color: #f1f5f9;">
-                                Event: {summary}
+                                {summary}
                             </h4>
-                            <p style="margin: 0; color: #cbd5e1; font-size: 0.875rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">
-                                Cluster: {log_cluster}
-                            </p>
                             <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                                 <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; border: 1px solid #10b981;">
                                     📊 {logs_count} logs
@@ -515,9 +512,6 @@ def generate_clusters_html(
                 <!-- Cluster Logs (expandable content) -->
                 <div class="cluster-logs-content" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #475569; border-top: none; border-radius: 0 0 0.75rem 0.75rem; max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; backdrop-filter: blur(10px);">
                     <div style="padding: 1rem;">
-                        <div style="border-bottom: 1px solid #475569; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                            <h5 style="margin: 0; color: #f1f5f9; font-size: 1rem; font-weight: 600;">📊 Event Logs: "{summary}" ({logs_count} items)</h5>
-                        </div>
                         {cluster_logs_html}
                     </div>
                 </div>
@@ -661,7 +655,6 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
         summary = alert_data.get("Summary", "No summary available")
         timestamp = alert_data.get("Timestamp", "Unknown")
         expert_classification = alert_data.get("Classification", "Unclassified")
-        log_cluster = alert_data.get("Log Cluster", "No cluster")
 
         # Get classification color and badge
         classification_color = (
