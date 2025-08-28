@@ -12,7 +12,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-ENV UV_PROJECT_ENVIRONMENT="/usr/local/bin"
+ENV UV_PROJECT_ENVIRONMENT="/usr/local/"
 # RUN uv sync --frozen --no-dev
 RUN uv pip install -r pyproject.toml
 
@@ -23,4 +23,4 @@ COPY src/ ./src/
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-CMD ["uv", "run", "python", "-m", "uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+CMD ["uv", "run", "python", "-m", "uvicorn", "alm.main_fastapi:app", "--reload"] 

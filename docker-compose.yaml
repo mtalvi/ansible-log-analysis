@@ -1,5 +1,3 @@
-version: "3.3"
-
 networks:
   alm:
 
@@ -61,45 +59,63 @@ services:
       - POSTGRES_DB=logsdb
     ports:
       - "5432:5432"
-    # networks:
-    #   - alm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - alm
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d logsdb"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Containerfile
-  #   ports:
-  #     - "8000:8000"
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - OPENAI_API_TOKEN=${OPENAI_API_TOKEN}
-  #     - OPENAI_API_ENDPOINT=${OPENAI_API_ENDPOINT}
-  #     - LANGSMITH_TRACING=${LANGSMITH_TRACING}
-  #     - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
-  #     - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
-  #     - DATABASE_URL=${DATABASE_URL}
-  #   networks:
-  #     - alm
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  backend:
+    build:
+      context: .
+      dockerfile: Containerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - OPENAI_API_TOKEN=${OPENAI_API_TOKEN:-your-openai-token}
+      - OPENAI_API_ENDPOINT=${OPENAI_API_ENDPOINT:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-your-langsmith-key}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-ansible-log-monitor}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://user:password@postgres:5432/logsdb}
+      - BACKEND_URL=${BACKEND_URL}
+    # volumes:
+    #   - ./src:/app/src:ro
+    #   - ./config:/app/config:ro
+    networks:
+      - alm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # frontend:
   #   build:
   #     context: ./ui
   #     dockerfile: Containerfile
   #   ports:
-  #     - "3000:3000"
+  #     - "7860:7860"  # Gradio default port
   #   environment:
-  #     - BACKEND_URL=${BACKEND_URL}
+  #     - BACKEND_URL=${BACKEND_URL:-http://backend:8000}
+  #   # volumes:
+  #   #   - ./ui:/app:ro
   #   networks:
   #     - alm
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+
 volumes:
   postgres_data:
