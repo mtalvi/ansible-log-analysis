@@ -825,7 +825,7 @@ def create_interface():
             button_primary_background_fill="*primary_600",
             button_primary_text_color="white",
         ),
-        css=custom_css,
+        # css=custom_css,
     ) as demo:
         # Beautiful header
         with gr.Column(elem_classes=["main-header"]):
