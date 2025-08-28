@@ -110,16 +110,16 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
             sort_timestamp = datetime.min
 
         summary = alert.get("logSummary", "No summary available")
-        classification = alert.get("logClassification", "Unclassified")
-        category_cluster = alert.get("categoryCluster", "No cluster")
+        expert_classification = alert.get("expertClassification", "Unclassified")
+        log_cluster = alert.get("logCluster", "No cluster")
 
         formatted_data.append(
             {
                 "Index": i,
                 "Summary": summary,
                 "Timestamp": formatted_timestamp,  # Keep for details view
-                "Classification": classification,  # Keep for details view
-                "Category Cluster": category_cluster,  # Keep for details view
+                "Classification": expert_classification,  # Keep for details view
+                "Log Cluster": log_cluster,  # Keep for details view
                 "Sort_Timestamp": sort_timestamp,  # For sorting purposes
                 "Full Alert": alert,  # Store full alert data for later use
             }
@@ -235,14 +235,14 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
         full_alert = alert_data.get("Full Alert", {})
         summary = alert_data.get("Summary", "No summary available")
         timestamp = alert_data.get("Timestamp", "Unknown")
-        classification = alert_data.get("Classification", "Unclassified")
-        category_cluster = alert_data.get("Category Cluster", "No cluster")
+        expert_classification = alert_data.get("Classification", "Unclassified")
+        log_cluster = alert_data.get("Log Cluster", "No cluster")
 
         # Get classification color and badge
         classification_color = (
-            "#10b981" if classification != "Unclassified" else "#f59e0b"
+            "#10b981" if expert_classification != "Unclassified" else "#f59e0b"
         )
-        class_badge = "✅" if classification != "Unclassified" else "❓"
+        class_badge = "✅" if expert_classification != "Unclassified" else "❓"
 
         # Use full summary without truncation
         display_summary = summary
@@ -301,14 +301,14 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
                                 <span style="background: {
             classification_color
         }; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">{
-            classification
+            expert_classification
         }</span>
                 </div>
             </div>
             
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
                             <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">🎯 {
-            category_cluster
+            log_cluster
         }</span>
                             <span class="toggle-text" style="color: #94a3b8; font-size: 0.875rem;">▼ Click to expand details</span>
                         </div>
@@ -335,7 +335,7 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
                                 <strong style="color: #f1f5f9;">Category Cluster</strong>
                             </div>
                             <span style="background: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">{
-            category_cluster
+            log_cluster
         }</span>
                         </div>
                     </div>
@@ -502,19 +502,6 @@ def create_interface():
         font-size: 1.2rem;
         margin: 0.5rem 0 0 0;
         opacity: 0.9;
-    }
-    
-    /* Card styling */
-    .card {
-        background: rgba(30, 41, 59, 0.8);
-        border-radius: 1rem;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(71, 85, 105, 0.3);
-        margin-bottom: 1.5rem;
-        backdrop-filter: blur(10px);
-        position: relative;
-        overflow: visible !important;
     }
     
     .info-card {
@@ -825,7 +812,7 @@ def create_interface():
             button_primary_background_fill="*primary_600",
             button_primary_text_color="white",
         ),
-        # css=custom_css,
+        css=custom_css,
     ) as demo:
         # Beautiful header
         with gr.Column(elem_classes=["main-header"]):

@@ -66,5 +66,5 @@ The UI expects alerts with the following structure:
 - `logTimestamp`: Alert timestamp
 - `logMessage`: Full log message
 - `logSummary`: Brief summary of the alert
-- `logClassification`: Category classification
+- `expertClassification`: Category classification
 - `labels`: Key-value metadata labels
