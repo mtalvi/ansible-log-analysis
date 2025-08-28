@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.alm.database import get_session_gen
@@ -28,34 +28,64 @@ async def get_grafana_alerts(
 
 
 @router.get(
-    "/by-category/",
-    summary="Get grafana alerts by category",
+    "/by-expert-class/",
+    summary="Get grafana alerts by expert class",
     response_model=List[GrafanaAlert],
 )
-async def get_grafana_alerts_by_category(
-    category: str = Query(..., description="The category to filter alerts by"),
+async def get_grafana_alerts_by_expert_class(
+    expert_class: str = Query(..., description="The expert class to filter alerts by"),
     session: AsyncSession = Depends(get_session_gen),
 ) -> List[GrafanaAlert]:
-    query = select(GrafanaAlert).where(GrafanaAlert.expertClassification == category)
+    query = select(GrafanaAlert).where(
+        GrafanaAlert.expertClassification == expert_class
+    )
     alerts = await session.exec(query)
     return alerts
 
 
 @router.get(
-    "/by-category-cluster/",
-    summary="Get grafana alerts by category cluster",
+    "/unique-clusters/",
+    summary="Get unique log clusters for an expert class with representative alerts",
     response_model=List[GrafanaAlert],
 )
-async def get_grafana_alerts_by_category_cluster(
-    category_cluster: str = Query(
-        ..., description="The category cluster to filter alerts by"
-    ),
-    category: str = Query(..., description="The category to filter alerts by"),
+async def get_unique_clusters_by_expert_class(
+    expert_class: str = Query(..., description="The expert class to filter alerts by"),
+    session: AsyncSession = Depends(get_session_gen),
+) -> List[GrafanaAlert]:
+    """Get one representative alert for each unique log cluster within an expert class."""
+    from sqlalchemy import func
+
+    # Get one alert per unique cluster within the expert class
+    subquery = (
+        select(GrafanaAlert.logCluster, func.min(GrafanaAlert.id).label("min_id"))
+        .where(GrafanaAlert.expertClassification == expert_class)
+        .where(GrafanaAlert.logCluster.is_not(None))
+        .group_by(GrafanaAlert.logCluster)
+    ).alias("clusters")
+
+    query = (
+        select(GrafanaAlert)
+        .join(subquery, GrafanaAlert.id == subquery.c.min_id)
+        .order_by(GrafanaAlert.logCluster)
+    )
+
+    alerts = await session.exec(query)
+    return alerts
+
+
+@router.get(
+    "/by-expert-class-and-log-cluster/",
+    summary="Get grafana alerts by expert class and log cluster",
+    response_model=List[GrafanaAlert],
+)
+async def get_grafana_alerts_by_expert_class_and_log_cluster(
+    expert_class: str = Query(..., description="The expert class to filter alerts by"),
+    log_cluster: str = Query(..., description="The log cluster to filter alerts by"),
     session: AsyncSession = Depends(get_session_gen),
 ) -> List[GrafanaAlert]:
     query = select(GrafanaAlert).where(
-        GrafanaAlert.logCluster == category_cluster,
-        GrafanaAlert.expertClassification == category,
+        GrafanaAlert.logCluster == log_cluster,
+        GrafanaAlert.expertClassification == expert_class,
     )
     alerts = await session.exec(query)
     return alerts
