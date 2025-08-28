@@ -2,7 +2,7 @@ import asyncio
 import time
 
 from src.alm.database import get_session
-from src.alm.grafana_alert_mocker import ingest_alerts
+from src.alm.alert_mocker import ingest_alerts
 from src.alm.llm import get_llm
 
 from src.alm.agents.analizer.node import (
@@ -15,6 +15,13 @@ from src.alm.models import GrafanaAlert
 from sqlmodel import select
 
 from src.alm.database import init_tables
+
+
+async def _add_or_update_alert(alert):
+    async with get_session() as db:
+        db.add(alert)
+        await db.commit()
+        await db.refresh(alert)
 
 
 async def whole_pipeline():
@@ -68,6 +75,7 @@ async def _pipeline(
 
     if restart_db:
         await init_tables(delete_tables=True)
+        print("tables deleted")
 
     # Load the alerts
     if not load_alerts_from_db:
@@ -80,26 +88,29 @@ async def _pipeline(
             alerts = await db.exec(select(GrafanaAlert))
             alerts = alerts.all()
             print(f"alerts loaded from db {len(alerts)}")
-    alerts = alerts[:5]
+    # alerts = alerts[:20]
 
     # Cluster logs
     cluster_labels = cluster_logs(
         [alert.logMessage for alert in alerts], algorithm="meanshift"
     )
 
+    unique_cluster = {label: alert for alert, label in zip(alerts, cluster_labels)}
+    candidate_alerts = list(unique_cluster.values())
+
     # Create log summaries
     if generate_log_summaries:
         print("generating log summaries")
         start_time = time.time()
         log_summaries = await asyncio.gather(
-            *[summarize_log(alert.logMessage, llm) for alert in alerts]
+            *[summarize_log(alert.logMessage, llm) for alert in candidate_alerts]
         )
         elapsed_time = time.time() - start_time
         print(
             f"log_summaries finished {len(log_summaries)} - Time: {elapsed_time:.2f}s"
         )
     else:
-        log_summaries = [alert.logSummary for alert in alerts]
+        log_summaries = [alert.logSummary for alert in candidate_alerts]
 
     # Create log Category
     if generate_log_categories:
@@ -113,7 +124,7 @@ async def _pipeline(
             f"log categories finished {len(log_categories)} - Time: {elapsed_time:.2f}s"
         )
     else:
-        log_categories = [alert.expertClassification for alert in alerts]
+        log_categories = [alert.expertClassification for alert in candidate_alerts]
 
     # # Create step by step solution
     if generate_step_by_step_solutions:
@@ -122,7 +133,7 @@ async def _pipeline(
         step_by_step_solutions = await asyncio.gather(
             *[
                 suggest_step_by_step_solution(log_summary, alert.logMessage, llm)
-                for log_summary, alert in zip(log_summaries, alerts)
+                for log_summary, alert in zip(log_summaries, candidate_alerts)
             ]
         )
         elapsed_time = time.time() - start_time
@@ -130,34 +141,28 @@ async def _pipeline(
             f"step by step solutions finished {len(step_by_step_solutions)} - Time: {elapsed_time:.2f}s"
         )
     else:
-        step_by_step_solutions = [alert.stepByStepSolution for alert in alerts]
-
-    async def add_or_update_alert(
-        alert, log_summary, log_category, step_by_step_solution, cluster_label
-    ):
-        async with get_session() as db:
-            alert.logSummary = log_summary
-            alert.expertClassification = log_category
-            alert.stepByStepSolution = step_by_step_solution
-            alert.logCluster = cluster_label
-            db.add(alert)
-            await db.commit()
-            await db.refresh(alert)
-
-    start_time = time.time()
-    await asyncio.gather(
-        *[
-            add_or_update_alert(
-                alert, log_summary, log_category, step_by_step_solution, cluster_label
-            )
-            for alert, log_summary, log_category, step_by_step_solution, cluster_label in zip(
-                alerts,
-                log_summaries,
-                log_categories,
-                step_by_step_solutions,
-                cluster_labels,
-            )
+        step_by_step_solutions = [
+            alert.stepByStepSolution for alert in candidate_alerts
         ]
-    )
+
+    # update alerts fields by label
+    for alert, log_summary, log_category, step_by_step_solution in zip(
+        candidate_alerts, log_summaries, log_categories, step_by_step_solutions
+    ):
+        alert.logSummary = log_summary
+        alert.expertClassification = log_category
+        alert.stepByStepSolution = step_by_step_solution
+
+    # update alerts fields by label
+    for label, alert in zip(cluster_labels, alerts):
+        candidate_alert = candidate_alerts[label]
+        alert.logSummary = candidate_alert.logSummary
+        alert.expertClassification = candidate_alert.expertClassification
+        alert.stepByStepSolution = candidate_alert.stepByStepSolution
+        alert.logCluster = str(label)
+
+    # update database
+    start_time = time.time()
+    await asyncio.gather(*[_add_or_update_alert(alert) for alert in alerts])
     elapsed_time = time.time() - start_time
     print(f"database alerts added - Time: {elapsed_time:.2f}s")
