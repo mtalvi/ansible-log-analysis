@@ -197,16 +197,26 @@ def on_expert_change(expert: str):
         current_expert_class = expert
         current_view_mode = "clusters"  # Switch to cluster view mode
 
-        # Handle "Select All" case differently - show all logs
+        # Handle "Select All" case - now shows clusters like other expert classes
         if expert == "Select All":
             alerts = loop.run_until_complete(fetch_all_alerts())
-            formatted_data = format_alerts_for_display(alerts)
             current_category_alerts = alerts
             current_label_keys = extract_unique_label_keys(alerts)
-            current_view_mode = "logs"  # Direct to logs for "Select All"
+            current_view_mode = "clusters"  # Use cluster view for "Select All"
 
-            # Generate HTML for logs directly
-            logs_html = generate_logs_html(formatted_data)
+            # Create unique cluster data from all alerts
+            unique_clusters = {}
+            for alert in alerts:
+                cluster_key = alert.get("logCluster", "No cluster")
+                if cluster_key not in unique_clusters:
+                    unique_clusters[cluster_key] = alert
+
+            # Format cluster data for display
+            cluster_alerts = list(unique_clusters.values())
+            current_cluster_data = format_alerts_for_display(cluster_alerts)
+
+            # Generate HTML for clusters
+            logs_html = generate_clusters_html(current_cluster_data, expert)
         else:
             # Fetch unique clusters for this expert class
             cluster_alerts = loop.run_until_complete(
@@ -482,10 +492,10 @@ def generate_clusters_html(
                         <!-- Cluster info -->
                         <div style="flex: 1; min-width: 0;">
                             <h4 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 600; color: #f1f5f9;">
-                                Cluster: {log_cluster}
+                                Event: {summary}
                             </h4>
-                            <p style="margin: 0; color: #cbd5e1; font-size: 0.875rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                                {summary}
+                            <p style="margin: 0; color: #cbd5e1; font-size: 0.875rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">
+                                Cluster: {log_cluster}
                             </p>
                             <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                                 <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; border: 1px solid #10b981;">
@@ -506,7 +516,7 @@ def generate_clusters_html(
                 <div class="cluster-logs-content" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #475569; border-top: none; border-radius: 0 0 0.75rem 0.75rem; max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; backdrop-filter: blur(10px);">
                     <div style="padding: 1rem;">
                         <div style="border-bottom: 1px solid #475569; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                            <h5 style="margin: 0; color: #f1f5f9; font-size: 1rem; font-weight: 600;">📊 Logs in "{log_cluster}" ({logs_count} items)</h5>
+                            <h5 style="margin: 0; color: #f1f5f9; font-size: 1rem; font-weight: 600;">📊 Event Logs: "{summary}" ({logs_count} items)</h5>
                         </div>
                         {cluster_logs_html}
                     </div>
@@ -722,9 +732,7 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
             </div>
             
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">🎯 {
-            log_cluster
-        }</span>
+                            <span style="background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500;">📋 Event Summary</span>
                             <span class="toggle-text" style="color: #94a3b8; font-size: 0.875rem;">▼ Click to expand details</span>
                         </div>
                     </div>
@@ -746,12 +754,10 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
                         </div>
                         <div>
                             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                <span style="font-size: 1.25rem;">🎯</span>
-                                <strong style="color: #f1f5f9;">Category Cluster</strong>
+                                <span style="font-size: 1.25rem;">📋</span>
+                                <strong style="color: #f1f5f9;">Event Summary</strong>
                             </div>
-                            <span style="background: #3b82f6; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">{
-            log_cluster
-        }</span>
+                            <span style="background: #10b981; color: white; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; display: inline-block;">Displayed Above</span>
                         </div>
                     </div>
                 </div>
