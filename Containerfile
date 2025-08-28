@@ -23,4 +23,4 @@ COPY src/ ./src/
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-CMD ["uv", "run", "python", "-m", "uvicorn", "alm.main_fastapi:app", "--reload"] 
+CMD ["uv", "run", "python", "-m", "uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 

@@ -101,21 +101,24 @@ services:
       timeout: 10s
       retries: 3
 
-  # frontend:
-  #   build:
-  #     context: ./ui
-  #     dockerfile: Containerfile
-  #   ports:
-  #     - "7860:7860"  # Gradio default port
-  #   environment:
-  #     - BACKEND_URL=${BACKEND_URL:-http://backend:8000}
-  #   # volumes:
-  #   #   - ./ui:/app:ro
-  #   networks:
-  #     - alm
-  #   depends_on:
-  #     - backend
-  #   restart: unless-stopped
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Containerfile
+    ports:
+      - "7860:7860"  # Gradio default port
+    environment:
+      - BACKEND_URL=${BACKEND_URL:-http://backend:8000}
+    networks:
+      - alm
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
