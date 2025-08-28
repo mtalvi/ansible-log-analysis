@@ -19,11 +19,11 @@ class GrafanaAlert(SQLModel, table=True):
     logSummary: Optional[str] = Field(
         default=None, description="Summary of the log message"
     )
-    logClassification: Optional[str] = Field(
+    expertClassification: Optional[str] = Field(
         default=None, description="Classification of the log message"
     )
-    categoryCluster: Optional[str] = Field(
-        default=None, description="Category cluster of the log message"
+    logCluster: Optional[str] = Field(
+        default=None, description="Cluster of the log message"
     )
     stepByStepSolution: Optional[str] = Field(
         default=None, description="Step by step solution to the problem"

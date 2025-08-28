@@ -36,7 +36,7 @@ async def get_grafana_alerts_by_category(
     category: str = Query(..., description="The category to filter alerts by"),
     session: AsyncSession = Depends(get_session_gen),
 ) -> List[GrafanaAlert]:
-    query = select(GrafanaAlert).where(GrafanaAlert.logClassification == category)
+    query = select(GrafanaAlert).where(GrafanaAlert.expertClassification == category)
     alerts = await session.exec(query)
     return alerts
 
@@ -47,11 +47,16 @@ async def get_grafana_alerts_by_category(
     response_model=List[GrafanaAlert],
 )
 async def get_grafana_alerts_by_category_cluster(
-    category_cluster: str = Query(..., description="The category cluster to filter alerts by"),
+    category_cluster: str = Query(
+        ..., description="The category cluster to filter alerts by"
+    ),
     category: str = Query(..., description="The category to filter alerts by"),
     session: AsyncSession = Depends(get_session_gen),
 ) -> List[GrafanaAlert]:
-    query = select(GrafanaAlert).where(GrafanaAlert.categoryCluster == category_cluster, GrafanaAlert.logClassification == category)
+    query = select(GrafanaAlert).where(
+        GrafanaAlert.logCluster == category_cluster,
+        GrafanaAlert.expertClassification == category,
+    )
     alerts = await session.exec(query)
     return alerts
 
