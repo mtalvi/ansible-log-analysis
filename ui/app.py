@@ -10,7 +10,8 @@ from typing import List, Dict, Any
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Log Categories (as defined in README)
-LOG_CATEGORIES = [
+EXPERT_CLASSES = [
+    "Select All",
     "Cloud Infrastructure / AWS Engineers",
     "Kubernetes / OpenShift Cluster Admins",
     "DevOps / CI/CD Engineers (Ansible + Automation Platform)",
@@ -66,7 +67,7 @@ async def fetch_all_alerts() -> List[Dict[str, Any]]:
     """Fetch all Grafana alerts from the backend."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BACKEND_URL}/grafana-alert")
+            response = await client.get(f"{BACKEND_URL}/grafana-alert/")
             response.raise_for_status()
             return response.json()
     except Exception as e:
@@ -74,17 +75,54 @@ async def fetch_all_alerts() -> List[Dict[str, Any]]:
         return []
 
 
-async def fetch_alerts_by_category(category: str) -> List[Dict[str, Any]]:
-    """Fetch alerts filtered by category from the backend."""
+async def fetch_alerts_by_expert_class(expert_class: str) -> List[Dict[str, Any]]:
+    """Fetch alerts filtered by expert class from the backend."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BACKEND_URL}/grafana-alert/by-category/?category={category}"
+                f"{BACKEND_URL}/grafana-alert/by-expert-class/?expert_class={expert_class}"
             )
             response.raise_for_status()
+            print(f"Response: {response.json()}")
             return response.json()
     except Exception as e:
-        print(f"Error fetching alerts for category {category}: {e}")
+        print(f"Error fetching alerts for expert class {expert_class}: {e}")
+        return []
+
+
+async def fetch_unique_clusters_by_expert_class(
+    expert_class: str,
+) -> List[Dict[str, Any]]:
+    """Fetch unique log clusters for an expert class from the backend."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{BACKEND_URL}/grafana-alert/unique-clusters/?expert_class={expert_class}"
+            )
+            response.raise_for_status()
+            print(f"Unique clusters response: {response.json()}")
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching unique clusters for expert class {expert_class}: {e}")
+        return []
+
+
+async def fetch_alerts_by_expert_class_and_cluster(
+    expert_class: str, log_cluster: str
+) -> List[Dict[str, Any]]:
+    """Fetch alerts filtered by expert class and log cluster from the backend."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{BACKEND_URL}/grafana-alert/by-expert-class-and-log-cluster/?expert_class={expert_class}&log_cluster={log_cluster}"
+            )
+            response.raise_for_status()
+            print(f"Alerts by cluster response: {response.json()}")
+            return response.json()
+    except Exception as e:
+        print(
+            f"Error fetching alerts for expert class {expert_class} and cluster {log_cluster}: {e}"
+        )
         return []
 
 
@@ -135,9 +173,9 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
     return formatted_data
 
 
-def on_category_change(category: str):
-    """Handle category dropdown change."""
-    if not category or category == "Select a category":
+def on_expert_change(expert: str):
+    """Handle expert class dropdown change - now shows clusters first."""
+    if not expert or expert == "Select a expert":
         empty_html = generate_logs_html([])
         return (
             empty_html,
@@ -151,17 +189,51 @@ def on_category_change(category: str):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        alerts = loop.run_until_complete(fetch_alerts_by_category(category))
-        formatted_data = format_alerts_for_display(alerts)
+        # Store the current expert class globally
+        global \
+            current_expert_class, \
+            current_view_mode, \
+            current_cluster_data, \
+            current_category_alerts, \
+            current_label_keys
 
-        # Store data globally
-        global current_alerts_data, current_category_alerts, current_label_keys
-        current_alerts_data = formatted_data
-        current_category_alerts = alerts
-        current_label_keys = extract_unique_label_keys(alerts)
+        current_expert_class = expert
+        current_view_mode = "clusters"  # Switch to cluster view mode
 
-        # Generate HTML for logs
-        logs_html = generate_logs_html(formatted_data)
+        # Handle "Select All" case differently - show all logs
+        if expert == "Select All":
+            alerts = loop.run_until_complete(fetch_all_alerts())
+            formatted_data = format_alerts_for_display(alerts)
+            current_category_alerts = alerts
+            current_label_keys = extract_unique_label_keys(alerts)
+            current_view_mode = "logs"  # Direct to logs for "Select All"
+
+            # Generate HTML for logs directly
+            logs_html = generate_logs_html(formatted_data)
+        else:
+            print(f"Expert changed to: {expert}")
+            # Fetch unique clusters for this expert class
+            cluster_alerts = loop.run_until_complete(
+                fetch_unique_clusters_by_expert_class(expert)
+            )
+
+            if cluster_alerts:
+                # Format cluster data for display
+                current_cluster_data = format_alerts_for_display(cluster_alerts)
+                # Generate HTML for clusters
+                logs_html = generate_clusters_html(current_cluster_data, expert)
+
+                # Also fetch all alerts for label filtering
+                all_alerts = loop.run_until_complete(
+                    fetch_alerts_by_expert_class(expert)
+                )
+                current_category_alerts = all_alerts
+                current_label_keys = extract_unique_label_keys(all_alerts)
+            else:
+                current_cluster_data = []
+                current_category_alerts = []
+                current_label_keys = []
+                logs_html = generate_clusters_html([], expert)
 
         # Update label key dropdown
         label_key_choices = ["No label key"] + current_label_keys
@@ -189,11 +261,15 @@ def on_label_key_change(label_key: str):
     return gr.update(choices=label_value_choices, value="No label value")
 
 
+# Removed on_cluster_change function - clusters are now directly expandable
+
+
 def on_label_filter_change(label_key: str, label_value: str):
     """Handle label filtering when label key or value changes."""
-    global current_category_alerts, current_alerts_data
+    global current_category_alerts, current_alerts_data, current_view_mode
 
-    if not current_category_alerts:
+    # Only apply label filtering when in logs view mode
+    if current_view_mode != "logs" or not current_category_alerts:
         return generate_logs_html([])
 
     # Apply label filtering if both key and value are selected
@@ -217,6 +293,349 @@ def on_label_filter_change(label_key: str, label_value: str):
     logs_html = generate_logs_html(formatted_data)
 
     return logs_html
+
+
+def generate_clusters_html(
+    cluster_data: List[Dict[str, Any]], expert_class: str
+) -> str:
+    """Generate HTML for displaying expandable log clusters with logs underneath."""
+    if not cluster_data:
+        return """
+        <div style="text-align: center; padding: 3rem; color: #94a3b8;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🎯</div>
+            <h3 style="color: #cbd5e1; margin-bottom: 0.5rem;">No clusters found</h3>
+            <p style="margin: 0;">No log clusters available for this expert class</p>
+        </div>
+        """
+
+    import asyncio
+
+    # Set up async loop to fetch logs for each cluster
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    html_parts = []
+
+    try:
+        for i, cluster_data_item in enumerate(cluster_data):
+            full_alert = cluster_data_item.get("Full Alert", cluster_data_item)
+            summary = cluster_data_item.get(
+                "Summary", full_alert.get("logSummary", "No summary available")
+            )
+            log_cluster = cluster_data_item.get(
+                "Log Cluster", full_alert.get("logCluster", "No cluster")
+            )
+
+            # Fetch logs for this specific cluster
+            try:
+                cluster_alerts = loop.run_until_complete(
+                    fetch_alerts_by_expert_class_and_cluster(expert_class, log_cluster)
+                )
+                cluster_logs_formatted = (
+                    format_alerts_for_display(cluster_alerts) if cluster_alerts else []
+                )
+                logs_count = len(cluster_logs_formatted)
+            except Exception as e:
+                print(f"Error fetching logs for cluster {log_cluster}: {e}")
+                cluster_logs_formatted = []
+                logs_count = 0
+
+            # Generate HTML for the logs in this cluster
+            cluster_logs_html = ""
+            if cluster_logs_formatted:
+                # Generate individual log items for this cluster
+                for j, log_data in enumerate(cluster_logs_formatted):
+                    log_full_alert = log_data.get("Full Alert", {})
+                    log_summary = log_data.get("Summary", "No summary available")
+                    log_timestamp = log_data.get("Timestamp", "Unknown")
+                    log_classification = log_data.get("Classification", "Unclassified")
+
+                    # Get classification color and badge
+                    classification_color = (
+                        "#10b981" if log_classification != "Unclassified" else "#f59e0b"
+                    )
+                    class_badge = "✅" if log_classification != "Unclassified" else "❓"
+
+                    # Format labels
+                    labels_html = ""
+                    if log_full_alert.get("labels"):
+                        labels_list = [
+                            f'<span style="display: inline-block; background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #475569; padding: 0.25rem 0.5rem; border-radius: 0.375rem; margin: 0.125rem; font-size: 0.875rem;"><strong style="color: #cbd5e1;">{k}:</strong> {v}</span>'
+                            for k, v in log_full_alert.get("labels", {}).items()
+                        ]
+                        labels_html = "".join(labels_list)
+                    else:
+                        labels_html = (
+                            '<span style="color: #94a3b8;">No labels available</span>'
+                        )
+
+                    log_message = log_full_alert.get(
+                        "logMessage", "No log message available"
+                    )
+                    step_by_step_solution = log_full_alert.get("stepByStepSolution", "")
+
+                    # Convert markdown to HTML if solution exists
+                    if step_by_step_solution and step_by_step_solution.strip():
+                        step_by_step_solution_html = markdown.markdown(
+                            step_by_step_solution.strip(),
+                            extensions=["fenced_code", "tables", "nl2br"],
+                        )
+                    else:
+                        step_by_step_solution_html = ""
+
+                    # Create individual log item within cluster
+                    log_item_html = f"""
+                    <div class="cluster-log-item" style="margin: 0.5rem 0; border-left: 3px solid #3b82f6; background: rgba(15, 23, 42, 0.6);">
+                        <!-- Hidden checkbox for log toggle -->
+                        <input type="checkbox" id="cluster-{i}-log-{
+                        j
+                    }" style="display: none;">
+                        
+                        <!-- Log Summary (clickable) -->
+                        <label for="cluster-{i}-log-{
+                        j
+                    }" class="cluster-log-summary" style="display: block; padding: 0.75rem 1rem; cursor: pointer; transition: all 0.2s ease; border-radius: 0 0.375rem 0.375rem 0;">
+                            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                                <div style="flex-shrink: 0; margin-top: 0.125rem;">
+                                    <span style="font-size: 1.25rem;">{
+                        class_badge
+                    }</span>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <p style="margin: 0; font-size: 0.9rem; line-height: 1.4; color: #f1f5f9; font-weight: 500;">{
+                        log_summary
+                    }</p>
+                                    <div style="display: flex; justify-content: between; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                                        <span style="font-size: 0.8rem; color: #94a3b8;">⌚ {
+                        log_timestamp
+                    }</span>
+                                        <span style="background: {
+                        classification_color
+                    }; color: white; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 500;">{
+                        log_classification
+                    }</span>
+                                        <span class="cluster-log-toggle-text" style="color: #64748b; font-size: 0.75rem; margin-left: auto;">▼ Details</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+                        
+                        <!-- Log Details (expandable) -->
+                        <div class="cluster-log-details" style="background: rgba(7, 14, 25, 0.8); border-top: 1px solid #475569; padding: 0 1rem; max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease;">
+                            <div style="padding: 1rem 0;">
+                                <div style="margin-bottom: 1rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                        <span style="font-size: 1rem;">📄</span>
+                                        <strong style="color: #f1f5f9; font-size: 0.95rem;">Full Log Message</strong>
+                                    </div>
+                                    <div style="background: rgba(15, 23, 42, 0.9); color: #e2e8f0; border: 1px solid #374151; border-radius: 0.375rem; padding: 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.4; white-space: pre-wrap; max-height: 250px; overflow-y: auto;">{
+                        log_message
+                    }</div>
+                                </div>
+                                
+                                {
+                        f'''
+                                <div style="margin-bottom: 1rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                        <span style="font-size: 1rem;">🔧</span>
+                                        <strong style="color: #f1f5f9; font-size: 0.95rem;">Solution</strong>
+                                    </div>
+                                    <div style="background: rgba(16, 185, 129, 0.1); color: #e2e8f0; border: 1px solid #10b981; border-radius: 0.375rem; padding: 1rem; font-size: 0.8rem; line-height: 1.5; max-height: 300px; overflow-y: auto;">
+                                        {step_by_step_solution_html}
+                                    </div>
+                                </div>
+                                '''
+                        if step_by_step_solution_html
+                        else ""
+                    }
+                                
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                        <span style="font-size: 1rem;">🏷️</span>
+                                        <strong style="color: #f1f5f9; font-size: 0.95rem;">Labels</strong>
+                                    </div>
+                                    <div style="line-height: 1.6; font-size: 0.8rem;">
+                                        {labels_html}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """
+                    cluster_logs_html += log_item_html
+
+            else:
+                cluster_logs_html = '<div style="padding: 1rem; text-align: center; color: #94a3b8; font-size: 0.875rem;">No logs found for this cluster</div>'
+
+            # Create expandable cluster item
+            cluster_item_html = f"""
+            <div class="cluster-expandable-item" style="margin-bottom: 1.5rem;">
+                <!-- Hidden checkbox for cluster toggle -->
+                <input type="checkbox" id="cluster-toggle-{i}" style="display: none;">
+                
+                <!-- Cluster Summary (clickable) -->
+                <label for="cluster-toggle-{i}" class="cluster-header" style="display: block; background: rgba(30, 41, 59, 0.8); border: 2px solid #475569; border-radius: 0.75rem; padding: 1.25rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.3); backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <!-- Cluster icon -->
+                        <div style="flex-shrink: 0;">
+                            <div style="background: #3b82f6; color: white; padding: 0.75rem; border-radius: 50%; font-size: 1.25rem; display: flex; align-items: center; justify-content: center;">
+                                🎯
+                            </div>
+                        </div>
+                        
+                        <!-- Cluster info -->
+                        <div style="flex: 1; min-width: 0;">
+                            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 600; color: #f1f5f9;">
+                                Cluster: {log_cluster}
+                            </h4>
+                            <p style="margin: 0; color: #cbd5e1; font-size: 0.875rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {summary}
+                            </p>
+                            <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; border: 1px solid #10b981;">
+                                    📊 {logs_count} logs
+                                </span>
+                                <span class="cluster-toggle-text" style="color: #94a3b8; font-size: 0.875rem;">▼ Click to expand logs</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Arrow indicator -->
+                        <div style="flex-shrink: 0; color: #94a3b8; font-size: 1.5rem; transition: transform 0.2s ease;">
+                            ▼
+                        </div>
+                    </div>
+                </label>
+                
+                <!-- Cluster Logs (expandable content) -->
+                <div class="cluster-logs-content" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #475569; border-top: none; border-radius: 0 0 0.75rem 0.75rem; max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; backdrop-filter: blur(10px);">
+                    <div style="padding: 1rem;">
+                        <div style="border-bottom: 1px solid #475569; padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                            <h5 style="margin: 0; color: #f1f5f9; font-size: 1rem; font-weight: 600;">📊 Logs in "{log_cluster}" ({logs_count} items)</h5>
+                        </div>
+                        {cluster_logs_html}
+                    </div>
+                </div>
+            </div>
+            """
+            html_parts.append(cluster_item_html)
+
+    finally:
+        loop.close()
+
+    # Add CSS for cluster and log toggle functionality
+    cluster_css = """
+    <style>
+        /* Cluster toggle functionality */
+        .cluster-expandable-item input[type="checkbox"] {
+            display: none !important;
+        }
+        
+        /* Default state: cluster content hidden */
+        .cluster-logs-content {
+            max-height: 0 !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            border-width: 0 !important;
+            transition: all 0.4s ease !important;
+        }
+        
+        /* When cluster checkbox is checked: show content */
+        input[id^="cluster-toggle-"]:checked ~ .cluster-logs-content {
+            max-height: 2000px !important;
+            padding: 0 !important;
+            border-width: 2px !important;
+            border-color: #475569 !important;
+            border-style: solid !important;
+            border-top: none !important;
+        }
+        
+        /* Rotate arrow when cluster expanded */
+        input[id^="cluster-toggle-"]:checked ~ label > div > div:last-child {
+            transform: rotate(180deg);
+        }
+        
+        /* Change text when cluster expanded */
+        input[id^="cluster-toggle-"]:checked ~ label .cluster-toggle-text::before {
+            content: "▲ Click to collapse logs";
+        }
+        
+        input[id^="cluster-toggle-"]:not(:checked) ~ label .cluster-toggle-text::before {
+            content: "▼ Click to expand logs";
+        }
+        
+        .cluster-toggle-text {
+            display: none;
+        }
+        
+        .cluster-toggle-text::before {
+            display: inline;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+        
+        /* Log item toggle functionality within clusters */
+        .cluster-log-item input[type="checkbox"] {
+            display: none !important;
+        }
+        
+        /* Default state: log details hidden */
+        .cluster-log-details {
+            max-height: 0 !important;
+            overflow: hidden !important;
+            padding: 0 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        /* When log checkbox is checked: show details */
+        input[id^="cluster-"][id*="-log-"]:checked ~ .cluster-log-details {
+            max-height: 800px !important;
+            padding: 0 1rem !important;
+        }
+        
+        /* Change log toggle text */
+        input[id^="cluster-"][id*="-log-"]:checked ~ label .cluster-log-toggle-text::before {
+            content: "▲ Hide";
+        }
+        
+        input[id^="cluster-"][id*="-log-"]:not(:checked) ~ label .cluster-log-toggle-text::before {
+            content: "▼ Details";
+        }
+        
+        .cluster-log-toggle-text {
+            display: none;
+        }
+        
+        .cluster-log-toggle-text::before {
+            display: inline;
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        
+        /* Enhanced hover effects */
+        .cluster-header:hover {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 4px 8px rgba(59,130,246,0.25) !important;
+            transform: translateY(-1px);
+            background: rgba(30, 41, 59, 0.95) !important;
+        }
+        
+        .cluster-log-summary:hover {
+            background: rgba(30, 41, 59, 0.4) !important;
+        }
+        
+        /* Animations */
+        .cluster-expandable-item {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    """
+
+    return cluster_css + "\n".join(html_parts)
 
 
 def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
@@ -452,6 +871,10 @@ def generate_logs_html(alerts_data: List[Dict[str, Any]]) -> str:
 current_alerts_data = []
 current_category_alerts = []  # Store alerts from current category
 current_label_keys = []  # Store available label keys
+current_expert_class = ""  # Store current expert class
+current_view_mode = "clusters"  # "clusters" or "logs"
+current_cluster_data = []  # Store unique cluster data for current expert
+current_selected_cluster = ""  # Store currently selected cluster
 
 
 def create_interface():
@@ -828,13 +1251,13 @@ def create_interface():
             gr.HTML('<h3 class="section-header">🎯 Filters & Controls</h3>')
 
             with gr.Row():
-                with gr.Column(scale=2):
-                    category_dropdown = gr.Dropdown(
-                        choices=["Select a category"] + LOG_CATEGORIES,
-                        value="Select a category",
-                        label="📂 Expert Field",
-                        info="Choose a category to filter and analyze alerts",
-                        elem_classes=["category-selector"],
+                with gr.Column(scale=3):
+                    expert_dropdown = gr.Dropdown(
+                        choices=["Select a expert"] + EXPERT_CLASSES,
+                        value="Select a expert",
+                        label="📂 Expert Class",
+                        info="Choose a expert class to filter and analyze alerts",
+                        elem_classes=["expert-selector"],
                     )
 
                 with gr.Column(scale=1):
@@ -870,9 +1293,9 @@ def create_interface():
             )
 
         # Event handlers
-        category_dropdown.change(
-            fn=on_category_change,
-            inputs=[category_dropdown],
+        expert_dropdown.change(
+            fn=on_expert_change,
+            inputs=[expert_dropdown],
             outputs=[logs_display, label_key_dropdown, label_value_dropdown],
         )
 
