@@ -83,7 +83,6 @@ async def fetch_alerts_by_expert_class(expert_class: str) -> List[Dict[str, Any]
                 f"{BACKEND_URL}/grafana-alert/by-expert-class/?expert_class={expert_class}"
             )
             response.raise_for_status()
-            print(f"Response: {response.json()}")
             return response.json()
     except Exception as e:
         print(f"Error fetching alerts for expert class {expert_class}: {e}")
@@ -100,7 +99,6 @@ async def fetch_unique_clusters_by_expert_class(
                 f"{BACKEND_URL}/grafana-alert/unique-clusters/?expert_class={expert_class}"
             )
             response.raise_for_status()
-            print(f"Unique clusters response: {response.json()}")
             return response.json()
     except Exception as e:
         print(f"Error fetching unique clusters for expert class {expert_class}: {e}")
@@ -117,7 +115,6 @@ async def fetch_alerts_by_expert_class_and_cluster(
                 f"{BACKEND_URL}/grafana-alert/by-expert-class-and-log-cluster/?expert_class={expert_class}&log_cluster={log_cluster}"
             )
             response.raise_for_status()
-            print(f"Alerts by cluster response: {response.json()}")
             return response.json()
     except Exception as e:
         print(
@@ -211,7 +208,6 @@ def on_expert_change(expert: str):
             # Generate HTML for logs directly
             logs_html = generate_logs_html(formatted_data)
         else:
-            print(f"Expert changed to: {expert}")
             # Fetch unique clusters for this expert class
             cluster_alerts = loop.run_until_complete(
                 fetch_unique_clusters_by_expert_class(expert)
