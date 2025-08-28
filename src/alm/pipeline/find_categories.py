@@ -6,6 +6,7 @@ from src.alm.grafana_alert_mocker import ingest_alerts
 from src.alm.llm import get_llm
 
 from src.alm.agents.analizer.node import (
+    cluster_logs,
     summarize_log,
     categorize_log,
     suggest_step_by_step_solution,
@@ -80,12 +81,18 @@ async def _pipeline(
             alerts = alerts.all()
             print(f"alerts loaded from db {len(alerts)}")
     alerts = alerts[:5]
+
+    # Cluster logs
+    cluster_labels = cluster_logs(
+        [alert.logMessage for alert in alerts], algorithm="meanshift"
+    )
+
     # Create log summaries
     if generate_log_summaries:
         print("generating log summaries")
         start_time = time.time()
         log_summaries = await asyncio.gather(
-            *[summarize_log(alert, llm) for alert in alerts]
+            *[summarize_log(alert.logMessage, llm) for alert in alerts]
         )
         elapsed_time = time.time() - start_time
         print(
@@ -106,7 +113,7 @@ async def _pipeline(
             f"log categories finished {len(log_categories)} - Time: {elapsed_time:.2f}s"
         )
     else:
-        log_categories = [alert.logClassification for alert in alerts]
+        log_categories = [alert.expertClassification for alert in alerts]
 
     # # Create step by step solution
     if generate_step_by_step_solutions:
@@ -126,12 +133,13 @@ async def _pipeline(
         step_by_step_solutions = [alert.stepByStepSolution for alert in alerts]
 
     async def add_or_update_alert(
-        alert, log_summary, log_category, step_by_step_solution
+        alert, log_summary, log_category, step_by_step_solution, cluster_label
     ):
         async with get_session() as db:
             alert.logSummary = log_summary
-            alert.logClassification = log_category
+            alert.expertClassification = log_category
             alert.stepByStepSolution = step_by_step_solution
+            alert.logCluster = cluster_label
             db.add(alert)
             await db.commit()
             await db.refresh(alert)
@@ -139,9 +147,15 @@ async def _pipeline(
     start_time = time.time()
     await asyncio.gather(
         *[
-            add_or_update_alert(alert, log_summary, log_category, step_by_step_solution)
-            for alert, log_summary, log_category, step_by_step_solution in zip(
-                alerts, log_summaries, log_categories, step_by_step_solutions
+            add_or_update_alert(
+                alert, log_summary, log_category, step_by_step_solution, cluster_label
+            )
+            for alert, log_summary, log_category, step_by_step_solution, cluster_label in zip(
+                alerts,
+                log_summaries,
+                log_categories,
+                step_by_step_solutions,
+                cluster_labels,
             )
         ]
     )
