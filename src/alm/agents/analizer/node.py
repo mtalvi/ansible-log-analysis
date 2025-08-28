@@ -42,9 +42,8 @@ class SuggestStepByStepSolutionSchema(BaseModel):
     )
 
 
-async def summarize_log(alert, llm: ChatOpenAI):
+async def summarize_log(log, llm: ChatOpenAI):
     llm_summary = llm.with_structured_output(SummarySchema)
-    log = alert.logMessage
     log_summary = await llm_summary.ainvoke(
         [
             {"role": "system", "content": "You Ansible expert and helpful assistant"},
@@ -74,7 +73,7 @@ async def categorize_log(log_summary, llm: ChatOpenAI):
 
 
 def get_category_cluster(classification: str) -> str:
-    """Map logClassification to categoryCluster for higher-level grouping."""
+    """Map expertClassification to categoryCluster for higher-level grouping."""
     classification_to_cluster = {
         "Cloud Infrastructure / AWS Engineers": "Cloud Infrastructure",
         "Kubernetes / OpenShift Cluster Admins": "Kubernetes / OpenShift Cluster Admins",
@@ -111,9 +110,9 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
 
 
 def cluster_logs(
-    log_summaries: List[str],
+    logs: List[str],
     model_name: str = "Qwen/Qwen3-Embedding-0.6B",
-    algorithm: str = "dbscan",
+    algorithm: str = "meanshift",
 ):
     """
     Cluster log summaries using sentence embeddings and various clustering algorithms.
@@ -126,14 +125,21 @@ def cluster_logs(
     Returns:
         List of cluster labels for each log summary (same order as input)
     """
-    if not log_summaries:
+    if not logs:
         return []
 
     # Initialize sentence transformer encoder
     encoder = SentenceTransformer(model_name)
 
     # Encode all log summaries
-    embeddings = encoder.encode(log_summaries, convert_to_numpy=True)
+    embeddings = encoder.encode(
+        [summary[-50:] for summary in logs],
+        convert_to_numpy=True,
+        show_progress_bar=True,
+        # batch_size=10,
+    )
+
+    print("finished embeddings")
 
     if algorithm.lower() == "dbscan":
         # DBSCAN - Good for finding clusters of varying shapes and handling noise
@@ -160,4 +166,4 @@ def cluster_logs(
             f"Unsupported algorithm: {algorithm}. Choose from 'dbscan', 'meanshift', 'agglomerative'"
         )
 
-    return clusterer, cluster_labels.tolist()
+    return cluster_labels.tolist()
