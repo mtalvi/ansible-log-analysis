@@ -17,6 +17,7 @@ engine = create_async_engine(os.getenv("DATABASE_URL"))
 async def init_tables(delete_tables=False):
     async with engine.begin() as conn:
         if delete_tables:
+            print("Starting to delete tables")
             await conn.run_sync(GrafanaAlert.metadata.drop_all)
         await conn.run_sync(GrafanaAlert.metadata.create_all)
 

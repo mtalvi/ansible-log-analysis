@@ -58,10 +58,6 @@ app = create_app()
 
 
 def run_db():
-    # print(os.getenv("DATABASE_URL"))
-    # await init_tables()
-    # print('tables initialized')
-    # await init_df()
     import uvicorn
 
     # Run with: python -m uvicorn alm.main_fastapi:app --reload

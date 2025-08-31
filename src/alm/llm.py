@@ -1,8 +1,3 @@
-"""
-LLM configuration module for the Ansible Log Monitor.
-This module provides a factory for creating LLM (Language Learning Model) instances using OpenAI's API.
-"""
-
 import os
 
 from langchain_openai import ChatOpenAI

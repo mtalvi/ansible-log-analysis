@@ -8,7 +8,7 @@ from src.alm.llm import get_llm
 from src.alm.agents.analizer.node import (
     cluster_logs,
     summarize_log,
-    categorize_log,
+    classify_log,
     suggest_step_by_step_solution,
 )
 from src.alm.models import GrafanaAlert
@@ -72,7 +72,7 @@ async def _pipeline(
     restart_db=False,
 ):
     llm = get_llm()
-
+    print("starting pipeline")
     if restart_db:
         await init_tables(delete_tables=True)
         print("tables deleted")
@@ -117,7 +117,7 @@ async def _pipeline(
         print("generating log categories")
         start_time = time.time()
         log_expert_calssification = await asyncio.gather(
-            *[categorize_log(log_summary, llm) for log_summary in log_summaries]
+            *[classify_log(log_summary, llm) for log_summary in log_summaries]
         )
         elapsed_time = time.time() - start_time
         print(

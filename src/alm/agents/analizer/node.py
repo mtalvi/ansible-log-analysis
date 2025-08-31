@@ -8,13 +8,13 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 # Load the user message (prompt) from the markdown file
-with open("src/alm/agents/analizer/prompts/create_log_summary.md", "r") as f:
+with open("src/alm/agents/analizer/prompts/summarize_error_log.md", "r") as f:
     log_summary_user_message = f.read()
 
-with open("src/alm/agents/analizer/prompts/categorize_log.md", "r") as f:
+with open("src/alm/agents/analizer/prompts/classifiy_log.md", "r") as f:
     log_category_user_message = f.read()
 
-with open("src/alm/agents/analizer/prompts/suggest_fix.md", "r") as f:
+with open("src/alm/agents/analizer/prompts/create_step_by_step_sol.md", "r") as f:
     log_suggest_step_by_step_solution_user_message = f.read()
 
 
@@ -23,7 +23,7 @@ class SummarySchema(BaseModel):
     summary: str = Field(description="Summary of the log")
 
 
-class CategorizeSchema(BaseModel):
+class ClassifySchema(BaseModel):
     category: Literal[
         "Cloud Infrastructure / AWS Engineers",
         "Kubernetes / OpenShift Cluster Admins",
@@ -56,8 +56,8 @@ async def summarize_log(log, llm: ChatOpenAI):
     return log_summary.summary
 
 
-async def categorize_log(log_summary, llm: ChatOpenAI):
-    llm_categorize = llm.with_structured_output(CategorizeSchema)
+async def classify_log(log_summary, llm: ChatOpenAI):
+    llm_categorize = llm.with_structured_output(ClassifySchema)
     log_category = await llm_categorize.ainvoke(
         [
             {"role": "system", "content": "You Ansible expert and helpful assistant"},

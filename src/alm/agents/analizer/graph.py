@@ -43,16 +43,3 @@ def error_analysis(
         update = {"classification": classification, "reasoning": reasoning}
 
     return Command(goto=goto, update=update)
-
-
-# def summarize_error(state: AnalizerState, llm: ChatOpenAI):
-#     """Summarize the error."""
-
-#     system_prompt = prompts.SYSTEM_PROMPT
-#     user_prompt = prompts.USER_PROMPT.format(log=state.log_input)
-
-#     llm_summarizer = llm.with_structured_output(SummarizerOutputSchema)
-#     llm_summarizer_response = llm_summarizer.invoke(
-#         system_prompt,
-#         user_prompt
-#     )
