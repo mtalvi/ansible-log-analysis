@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from alm.pipeline.find_categories import (
+from alm.pipeline.offline import (
     only_generate_step_by_step_solutions,
     whole_pipeline,
 )
