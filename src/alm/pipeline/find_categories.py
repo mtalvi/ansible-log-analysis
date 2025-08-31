@@ -116,15 +116,17 @@ async def _pipeline(
     if generate_log_categories:
         print("generating log categories")
         start_time = time.time()
-        log_categories = await asyncio.gather(
+        log_expert_calssification = await asyncio.gather(
             *[categorize_log(log_summary, llm) for log_summary in log_summaries]
         )
         elapsed_time = time.time() - start_time
         print(
-            f"log categories finished {len(log_categories)} - Time: {elapsed_time:.2f}s"
+            f"log categories finished {len(log_expert_calssification)} - Time: {elapsed_time:.2f}s"
         )
     else:
-        log_categories = [alert.expertClassification for alert in candidate_alerts]
+        log_expert_calssification = [
+            alert.expertClassification for alert in candidate_alerts
+        ]
 
     # # Create step by step solution
     if generate_step_by_step_solutions:
@@ -146,16 +148,19 @@ async def _pipeline(
         ]
 
     # update alerts fields by label
-    for alert, log_summary, log_category, step_by_step_solution in zip(
-        candidate_alerts, log_summaries, log_categories, step_by_step_solutions
+    for alert, log_summary, log_expert_calssification, step_by_step_solution in zip(
+        candidate_alerts,
+        log_summaries,
+        log_expert_calssification,
+        step_by_step_solutions,
     ):
         alert.logSummary = log_summary
-        alert.expertClassification = log_category
+        alert.expertClassification = log_expert_calssification
         alert.stepByStepSolution = step_by_step_solution
 
     # update alerts fields by label
     for label, alert in zip(cluster_labels, alerts):
-        candidate_alert = candidate_alerts[label]
+        candidate_alert = unique_cluster[label]
         alert.logSummary = candidate_alert.logSummary
         alert.expertClassification = candidate_alert.expertClassification
         alert.stepByStepSolution = candidate_alert.stepByStepSolution

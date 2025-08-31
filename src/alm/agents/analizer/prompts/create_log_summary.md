@@ -21,6 +21,8 @@ Your summary must identify:
 - Mention key variable names, hostnames, or resource identifiers
 - Focus on the PRIMARY cause when multiple errors are present
 - Use consistent error category naming
+- Instead of saying the amounts of retries say 'x'
+- dont say the line number in the summary.
 
 **DON'T:**
 - Include verbose stack traces or full error messages
@@ -39,7 +41,7 @@ ansible_log_error:
 
 log_summary:
 
-Variable Error: aws_access_key_id is undefined in start.yml line 13 environment field.
+Variable Error: aws_access_key_id is undefined in start.yml environment field.
 
 ### Example 2: AWS Infrastructure Error
 ansible_log_error:
@@ -49,7 +51,7 @@ ansible_log_error:
 
 log_summary:
 
-AWS Capacity Error: EC2 instance i-05e629e35d32ca1d1 failed to start due to insufficient capacity after 4 retries.
+AWS Capacity Error: EC2 instance failed to start due to insufficient capacity after x retries.
 
 ### Example 3: Network Connectivity Error
 ansible_log_error:
@@ -69,7 +71,7 @@ ansible_log_error:
 
 log_summary:
 
-Attribute Error: student_password attribute missing from hostvars in post_software.yml line 126.
+Attribute Error: student_password attribute missing from hostvars in post_software.yml line x.
 
 ### Example 5: System Configuration Error
 ansible_log_error:
@@ -101,6 +103,18 @@ ansible_log_error:
 log_summary:
 
 Authentication Error: MySQL access denied for user 'deploy'@'localhost' with provided password.
+
+
+### Example 8: Empty log
+
+ansible_log_error:
+```
+{
+```
+
+log_summary:
+
+Empty log: there is no log provided
 
 
 ## Task Instructions
