@@ -2,6 +2,10 @@
 
 # Deploy Ansible Log Monitor locally - all 3 components
 echo "🚀 Starting local deployment of Ansible Log Monitor..."
+echo "🔌 Killing any process using port 7860..."
+fuser -k 7860/tcp 2>/dev/null
+echo "🔌 Killing any process using port 7861..."
+fuser -k 7861/tcp 2>/dev/null
 
 # Function to cleanup background processes on exit
 cleanup() {
@@ -14,6 +18,10 @@ cleanup() {
     if [ ! -z "$UI_PID" ]; then
         kill $UI_PID 2>/dev/null  
         echo "   ✓ UI stopped"
+    fi
+    if [ ! -z "$LABELING_UI_PID" ]; then
+        kill $LABELING_UI_PID 2>/dev/null
+        echo "   ✓ Labeling UI stopped"
     fi
     docker-compose down postgres 2>/dev/null
     echo "   ✓ PostgreSQL stopped"
@@ -42,7 +50,7 @@ sleep 5
 echo "⚙️  Starting Backend (FastAPI)..."
 uv run uvicorn src.alm.main_fastapi:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
-sleep 3
+sleep 1
 if kill -0 $BACKEND_PID 2>/dev/null; then
     echo "   ✓ Backend started on http://localhost:8000"
 else
@@ -54,12 +62,25 @@ fi
 echo "🖥️  Starting UI (Gradio)..."
 cd ui && uv run gradio app.py &
 UI_PID=$!
-cd ..
-sleep 3
+ls | echo
+# cd ..
+sleep 1
 if kill -0 $UI_PID 2>/dev/null; then
     echo "   ✓ UI started on http://localhost:7860"
 else
     echo "   ❌ Failed to start UI"
+    cleanup
+fi
+
+# 4. Start Labeling UI (Gradio)
+echo "🏷️  Starting Labeling UI (Gradio)..."
+uv run gradio labeling_interface/app.py &
+LABELING_UI_PID=$!
+sleep 1
+if kill -0 $LABELING_UI_PID 2>/dev/null; then
+    echo "   ✓ Labeling UI started on http://localhost:7861"
+else
+    echo "   ❌ Failed to start Labeling UI"
     cleanup
 fi
 
@@ -68,6 +89,7 @@ echo "🎉 All services are running!"
 echo "   📊 PostgreSQL: localhost:5432"
 echo "   ⚙️  Backend API: http://localhost:8000"
 echo "   🖥️  UI Interface: http://localhost:7860"
+echo "   🏷️  Labeling UI: http://localhost:7861"
 echo ""
 echo "📋 Health checks:"
 echo "   Backend: http://localhost:8000/health"
