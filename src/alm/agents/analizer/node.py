@@ -42,6 +42,7 @@ class SuggestStepByStepSolutionSchema(BaseModel):
     )
 
 
+# Can be improve by using eval-optimizer.
 async def summarize_log(log, llm: ChatOpenAI):
     llm_summary = llm.with_structured_output(SummarySchema)
     log_summary = await llm_summary.ainvoke(
@@ -70,21 +71,6 @@ async def classify_log(log_summary, llm: ChatOpenAI):
         ]
     )
     return log_category.category
-
-
-def get_category_cluster(classification: str) -> str:
-    """Map expertClassification to categoryCluster for higher-level grouping."""
-    classification_to_cluster = {
-        "Cloud Infrastructure / AWS Engineers": "Cloud Infrastructure",
-        "Kubernetes / OpenShift Cluster Admins": "Kubernetes / OpenShift Cluster Admins",
-        "DevOps / CI/CD Engineers (Ansible + Automation Platform)": "DevOps / CI/CD Engineers (Ansible + Automation Platform)",
-        "Networking / Security Engineers": "Networking / Security Engineers",
-        "System Administrators / OS Engineers": "System Administrators / OS Engineers",
-        "Application Developers / GitOps / Platform Engineers": "Application Developers / GitOps / Platform Engineers",
-        "Identity & Access Management (IAM) Engineers": "Identity & Access Management (IAM) Engineers",
-        "Other / Miscellaneous": "Other / Miscellaneous",
-    }
-    return classification_to_cluster.get(classification, "Unclassified")
 
 
 async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
