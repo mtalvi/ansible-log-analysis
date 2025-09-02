@@ -284,14 +284,14 @@ def create_app():
     with gr.Blocks(
         css=css,
         theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="slate",
+            primary_hue="indigo",
+            secondary_hue="blue",
             neutral_hue="slate",
             font=gr.themes.GoogleFont("Inter"),
             font_mono=gr.themes.GoogleFont("JetBrains Mono"),
         ).set(
             body_background_fill="*neutral_950",
-            body_text_color="*neutral_200",
+            body_text_color="*neutral_100",
             block_background_fill="*neutral_900",
             block_border_color="*neutral_700",
             input_background_fill="*neutral_800",
@@ -332,6 +332,7 @@ def create_app():
         with gr.Row():
             # Left column - Error Log
             with gr.Column(scale=2):
+                gr.Markdown("## Input:")
                 error_log = gr.Textbox(
                     label="Error Log",
                     lines=25,
@@ -342,6 +343,7 @@ def create_app():
 
             # Center column - Summary and Solution
             with gr.Column(scale=2):
+                gr.Markdown("## Outputs:")
                 summary = gr.Textbox(
                     label="Summary",
                     lines=8,
@@ -455,6 +457,6 @@ def create_app():
     return interface
 
 
+demo = create_app()
 if __name__ == "__main__":
-    app = create_app()
-    app.launch(server_name="0.0.0.0", server_port=7861, share=False, debug=True)
+    demo.launch(server_name="0.0.0.0", server_port=7861, share=False, debug=True)
