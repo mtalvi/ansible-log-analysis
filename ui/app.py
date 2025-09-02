@@ -1322,13 +1322,15 @@ def create_interface():
     return demo
 
 
+demo = create_interface()
+
+
 def main():
     """Main function to launch the Gradio app."""
     print("🚀 Starting Ansible Logs Viewer...")
     print(f"Backend URL: {BACKEND_URL}")
 
     # Create and launch the interface
-    demo = create_interface()
 
     # Launch the app
     demo.launch(
