@@ -1,45 +1,30 @@
 from typing import Literal, List
-
+import os
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN, MeanShift, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_distances
-
+import joblib
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from src.alm.agents.output_scheme import (
+    SummarySchema,
+    ClassifySchema,
+    SuggestStepByStepSolutionSchema,
+    RouterStepByStepSolutionSchema,
+)
+import numpy as np
 
 # Load the user message (prompt) from the markdown file
-with open("src/alm/agents/analizer/prompts/summarize_error_log.md", "r") as f:
+with open("src/alm/agents/prompts/summarize_error_log.md", "r") as f:
     log_summary_user_message = f.read()
 
-with open("src/alm/agents/analizer/prompts/classifiy_log.md", "r") as f:
+with open("src/alm/agents/prompts/classifiy_log.md", "r") as f:
     log_category_user_message = f.read()
 
-with open("src/alm/agents/analizer/prompts/create_step_by_step_sol.md", "r") as f:
+with open("src/alm/agents/prompts/create_step_by_step_sol.md", "r") as f:
     log_suggest_step_by_step_solution_user_message = f.read()
 
-
-# create stractued output for summary log and categorize log
-class SummarySchema(BaseModel):
-    summary: str = Field(description="Summary of the log")
-
-
-class ClassifySchema(BaseModel):
-    category: Literal[
-        "Cloud Infrastructure / AWS Engineers",
-        "Kubernetes / OpenShift Cluster Admins",
-        "DevOps / CI/CD Engineers (Ansible + Automation Platform)",
-        "Networking / Security Engineers",
-        "System Administrators / OS Engineers",
-        "Application Developers / GitOps / Platform Engineers",
-        "Identity & Access Management (IAM) Engineers",
-        "Other / Miscellaneous",
-    ] = Field(description="Category of the log")
-
-
-class SuggestStepByStepSolutionSchema(BaseModel):
-    step_by_step_solution: str = Field(
-        description="Step by step solution to the problem"
-    )
+with open("src/alm/agents/prompts/router_step_by_step_solution.md", "r") as f:
+    router_step_by_step_solution_user_message = f.read()
 
 
 # Can be improve by using eval-optimizer.
@@ -73,6 +58,27 @@ async def classify_log(log_summary, llm: ChatOpenAI):
     return log_category.category
 
 
+async def router_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
+    llm_router_step_by_step_solution = llm.with_structured_output(
+        RouterStepByStepSolutionSchema
+    )
+    router_step_by_step_solution = await llm_router_step_by_step_solution.ainvoke(
+        [
+            {
+                "role": "system",
+                "content": "You are an Ansible expert and helpful assistant",
+            },
+            {
+                "role": "user",
+                "content": router_step_by_step_solution_user_message.replace(
+                    "{log_summary}", log_summary
+                ).replace("{ansible_error_log}", log),
+            },
+        ]
+    )
+    return router_step_by_step_solution.suggestion
+
+
 async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
     llm_suggest_step_by_step_solution = llm.with_structured_output(
         SuggestStepByStepSolutionSchema
@@ -95,18 +101,70 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
     return log_suggest_step_by_step_solution.step_by_step_solution
 
 
-def cluster_logs(
+def _embed_logs(logs: List[str]):
+    model_name = os.getenv(
+        "SENTENCE_TRANSFORMER_MODEL_NAME", "Qwen/Qwen3-Embedding-0.6B"
+    )
+    encoder = SentenceTransformer(model_name)
+
+    embeddings = encoder.encode(
+        [summary[-50:] for summary in logs],
+        convert_to_numpy=True,
+        show_progress_bar=True,
+        # batch_size=10,
+    )
+    print("finished embeddings")
+
+    return embeddings
+
+
+def _cluster_logs(embeddings: np.ndarray):
+    algorithm = os.getenv("CLUSTERING_ALGORITHM", "meanshift")
+    if algorithm.lower() == "dbscan":
+        # DBSCAN - Good for finding clusters of varying shapes and handling noise
+        # Uses cosine distance for text similarity
+        distance_matrix = cosine_distances(embeddings)
+        cluster_model = DBSCAN(eps=0.3, min_samples=2, metric="precomputed")
+        cluster_labels = cluster_model.fit_predict(distance_matrix)
+
+    elif algorithm.lower() == "meanshift":
+        # Mean Shift - Automatically determines number of clusters
+        cluster_model = MeanShift(bandwidth=None)  # Auto-estimate bandwidth
+        cluster_labels = cluster_model.fit_predict(embeddings)
+
+    elif algorithm.lower() == "agglomerative":
+        # Agglomerative Clustering with distance threshold
+        # Automatically determines number of clusters based on distance threshold
+        cluster_model = AgglomerativeClustering(
+            n_clusters=None, distance_threshold=0.5, linkage="average", metric="cosine"
+        )
+        cluster_labels = cluster_model.fit_predict(embeddings)
+
+    else:
+        raise ValueError(
+            f"Unsupported algorithm: {algorithm}. Choose from 'dbscan', 'meanshift', 'agglomerative'"
+        )
+    return cluster_model, cluster_labels
+
+
+def infer_cluster_log(log: str):
+    embeddings = _embed_logs([log])
+    cluster_model = joblib.load(os.getenv("TMP_CLUSTER_MODEL_PATH"))
+    cluster_label = cluster_model.predict(embeddings)
+    return cluster_label.tolist()[0]
+
+
+# TODO export it to be service that is deployed once, and been called from diffrent api requests.
+# Deploy it as service.
+def train_embed_and_cluster_logs(
     logs: List[str],
-    model_name: str = "Qwen/Qwen3-Embedding-0.6B",
-    algorithm: str = "meanshift",
+    save_cluster_model: bool = True,
 ):
     """
     Cluster log summaries using sentence embeddings and various clustering algorithms.
 
     Args:
         log_summaries: List of log summary strings
-        model_name: HuggingFace sentence transformer model name
-        algorithm: Clustering algorithm to use ('dbscan', 'meanshift', 'agglomerative')
 
     Returns:
         List of cluster labels for each log summary (same order as input)
@@ -114,42 +172,12 @@ def cluster_logs(
     if not logs:
         return []
 
-    # Initialize sentence transformer encoder
-    encoder = SentenceTransformer(model_name)
+    # Embed logs
+    embeddings = _embed_logs(logs)
 
-    # Encode all log summaries
-    embeddings = encoder.encode(
-        [summary[-50:] for summary in logs],
-        convert_to_numpy=True,
-        show_progress_bar=True,
-        # batch_size=10,
-    )
-
-    print("finished embeddings")
-
-    if algorithm.lower() == "dbscan":
-        # DBSCAN - Good for finding clusters of varying shapes and handling noise
-        # Uses cosine distance for text similarity
-        distance_matrix = cosine_distances(embeddings)
-        clusterer = DBSCAN(eps=0.3, min_samples=2, metric="precomputed")
-        cluster_labels = clusterer.fit_predict(distance_matrix)
-
-    elif algorithm.lower() == "meanshift":
-        # Mean Shift - Automatically determines number of clusters
-        clusterer = MeanShift(bandwidth=None)  # Auto-estimate bandwidth
-        cluster_labels = clusterer.fit_predict(embeddings)
-
-    elif algorithm.lower() == "agglomerative":
-        # Agglomerative Clustering with distance threshold
-        # Automatically determines number of clusters based on distance threshold
-        clusterer = AgglomerativeClustering(
-            n_clusters=None, distance_threshold=0.5, linkage="average", metric="cosine"
-        )
-        cluster_labels = clusterer.fit_predict(embeddings)
-
-    else:
-        raise ValueError(
-            f"Unsupported algorithm: {algorithm}. Choose from 'dbscan', 'meanshift', 'agglomerative'"
-        )
+    # Train clustering model
+    cluster_model, cluster_labels = _cluster_logs(embeddings)
+    if save_cluster_model:
+        joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
 
     return cluster_labels.tolist()

@@ -5,8 +5,8 @@ from src.alm.database import get_session
 from src.alm.alert_mocker import ingest_alerts
 from src.alm.llm import get_llm
 
-from src.alm.agents.analizer.node import (
-    cluster_logs,
+from src.alm.agents.node import (
+    train_embed_and_cluster_logs,
     summarize_log,
     classify_log,
     suggest_step_by_step_solution,
@@ -91,8 +91,8 @@ async def _pipeline(
     # alerts = alerts[:20]
 
     # Cluster logs
-    cluster_labels = cluster_logs(
-        [alert.logMessage for alert in alerts], algorithm="meanshift"
+    cluster_labels = train_embed_and_cluster_logs(
+        [alert.logMessage for alert in alerts]
     )
 
     unique_cluster = {label: alert for alert, label in zip(alerts, cluster_labels)}
