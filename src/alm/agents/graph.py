@@ -1,4 +1,5 @@
 from langchain_openai import ChatOpenAI
+from src.alm.llm import get_llm
 from src.alm.agents.state import GrafanaAlert
 from src.alm.agents.node import (
     summarize_log,
@@ -12,10 +13,12 @@ from langgraph.types import Command
 
 from typing import Literal
 
+llm = get_llm()
+
 
 # Nodes
 async def cluster_logs_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[Literal["summarize_log_node"]]:
     logs = state.logMessage
     log_cluster = infer_cluster_log(logs)
@@ -23,14 +26,14 @@ async def cluster_logs_node(
 
 
 async def summarize_log_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[Literal["classify_log_node"]]:
     log_summary = await summarize_log(state.logMessage, llm)
     return Command(goto="classify_log_node", update={"logSummary": log_summary})
 
 
 async def classify_log_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[Literal["router_step_by_step_solution_node"]]:
     log_summary = state.logSummary
     log_category = await classify_log(log_summary, llm)
@@ -41,7 +44,7 @@ async def classify_log_node(
 
 
 async def suggest_step_by_step_solution_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
     log = state.logMessage
@@ -50,7 +53,7 @@ async def suggest_step_by_step_solution_node(
 
 
 async def router_step_by_step_solution_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[
     Literal["suggest_step_by_step_solution_node", "step_by_step_solution_agent_node"]
 ]:
@@ -66,7 +69,7 @@ async def router_step_by_step_solution_node(
 
 
 async def step_by_step_solution_agent_node(
-    state: GrafanaAlert, llm: ChatOpenAI
+    state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
     log = state.logMessage
@@ -76,7 +79,7 @@ async def step_by_step_solution_agent_node(
     return Command(goto=END, update={"stepByStepSolution": step_by_step_solution})
 
 
-async def graph():
+def build_graph():
     """call ainvoke to the graph to invoke it asynchronously"""
     builder = StateGraph(GrafanaAlert)
     builder.add_edge(START, "cluster_logs_node")
@@ -88,3 +91,10 @@ async def graph():
     builder.add_node(step_by_step_solution_agent_node)
 
     return builder.compile()
+
+
+_compiled_graph = build_graph()
+
+
+def get_graph():
+    return _compiled_graph

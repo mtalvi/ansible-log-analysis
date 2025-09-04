@@ -151,7 +151,7 @@ def infer_cluster_log(log: str):
     embeddings = _embed_logs([log])
     cluster_model = joblib.load(os.getenv("TMP_CLUSTER_MODEL_PATH"))
     cluster_label = cluster_model.predict(embeddings)
-    return cluster_label.tolist()[0]
+    return str(cluster_label.tolist()[0])
 
 
 # TODO export it to be service that is deployed once, and been called from diffrent api requests.
