@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import os
 from typing import Generator
 
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.alm.models import GrafanaAlert
 

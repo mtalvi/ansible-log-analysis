@@ -1,10 +1,13 @@
 from typing import List
-
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime
+from langchain_openai import ChatOpenAI
+from fastapi import APIRouter, Depends, Query, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.alm.database import get_session_gen
 from src.alm.models import GrafanaAlert
+from src.alm.agents.graph import get_graph
+from src.alm.llm import get_llm
 
 router = APIRouter(prefix="/grafana-alert", tags=["grafana-alert"])
 
@@ -91,9 +94,28 @@ async def get_grafana_alerts_by_expert_class_and_log_cluster(
     return alerts
 
 
-# @router.post("", status_code=status.HTTP_202_ACCEPTED, summary="Submit grafana alert")
-# async def submit_grafana_alert(grafana_alert: GrafanaAlert, session: AsyncSession = Depends(get_session_gen)) -> dict[str, str]:
-#     session.add(grafana_alert)
-#     await session.commit()
-#     await session.refresh(grafana_alert)
-#     return grafana_alert
+@router.post("/", status_code=status.HTTP_202_ACCEPTED, summary="Post log alert")
+async def post_log_alert(
+    log_alert: str, session: AsyncSession = Depends(get_session_gen)
+) -> GrafanaAlert:
+    graph_result = await get_graph().ainvoke({"logMessage": log_alert})
+
+    # Convert string timestamp to datetime object if provided
+    # Parse ISO format timestamp (e.g., '2025-09-04T09:07:06.596Z')
+    # If no timestamp is provided, the model will default to current time
+    # if 'logTimestamp' in graph_result and graph_result['logTimestamp']:
+    #     timestamp_str = graph_result['logTimestamp']
+    #     if timestamp_str.endswith('Z'):
+    #         # Remove 'Z' and parse as UTC
+    #         timestamp_str = timestamp_str[:-1]
+    #     graph_result['logTimestamp'] = datetime.fromisoformat(timestamp_str)
+    # else:
+    #     # Remove the key so the model can use its default (current time)
+    #     graph_result.pop('logTimestamp', None)
+
+    grafana_alert = GrafanaAlert(**graph_result)
+
+    session.add(grafana_alert)
+    await session.commit()
+    await session.refresh(grafana_alert)
+    return grafana_alert

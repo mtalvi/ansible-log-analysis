@@ -18,8 +18,8 @@ if not API_KEY or not BASE_URL:
 
 def get_llm(model: str = MODEL, temperature: float = TEMPERATURE):
     llm = ChatOpenAI(
-        api_key=os.getenv("OPENAI_API_TOKEN"),
-        base_url=os.getenv("OPENAI_API_ENDPOINT"),
+        api_key=API_KEY,
+        base_url=BASE_URL,
         model=model,
         temperature=temperature,
     )

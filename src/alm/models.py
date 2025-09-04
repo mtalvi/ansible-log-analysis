@@ -14,7 +14,9 @@ class GrafanaAlert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # Grouping information
-    logTimestamp: datetime
+    logTimestamp: Optional[datetime] = Field(
+        default_factory=datetime.now, description="Timestamp of the log message"
+    )
     logMessage: str = Field(description="Original log message that triggered the alert")
     logSummary: Optional[str] = Field(
         default=None, description="Summary of the log message"
