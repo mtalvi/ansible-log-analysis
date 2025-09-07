@@ -1,4 +1,4 @@
-from typing import Literal, List
+from typing import List
 import os
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN, MeanShift, AgglomerativeClustering
@@ -154,6 +154,23 @@ def infer_cluster_log(log: str):
     return str(cluster_label.tolist()[0])
 
 
+def _handle_outlaier_cluster(cluster_labels: np.ndarray):
+    clusters = np.unique(cluster_labels)
+    max_cluster = clusters.max()
+    # each cluster that is -1 replace it to be in cluster by himself
+
+    # Find indices where cluster_labels is -1 (outliers/noise points)
+    outlier_indices = np.where(cluster_labels == -1)[0]
+
+    # Assign each outlier its own unique cluster ID
+    next_cluster_id = max_cluster + 1
+    for idx in outlier_indices:
+        cluster_labels[idx] = next_cluster_id
+        next_cluster_id += 1
+
+    return cluster_labels
+
+
 # TODO export it to be service that is deployed once, and been called from diffrent api requests.
 # Deploy it as service.
 def train_embed_and_cluster_logs(
@@ -177,6 +194,10 @@ def train_embed_and_cluster_logs(
 
     # Train clustering model
     cluster_model, cluster_labels = _cluster_logs(embeddings)
+
+    # handle outlaier cluster
+    cluster_labels = _handle_outlaier_cluster(cluster_labels)
+
     if save_cluster_model:
         joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
 
