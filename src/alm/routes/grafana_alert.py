@@ -76,6 +76,7 @@ async def get_unique_clusters_by_expert_class(
     return alerts
 
 
+# TODO feels not efficent
 @router.get(
     "/by-expert-class-and-log-cluster/",
     summary="Get grafana alerts by expert class and log cluster",
