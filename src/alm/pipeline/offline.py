@@ -95,9 +95,6 @@ async def _pipeline(
         [alert.logMessage for alert in alerts]
     )
 
-    # handle outlaier cluster
-    cluster_labels = handle_outlaier_cluster(cluster_labels)
-
     unique_cluster = {label: alert for alert, label in zip(alerts, cluster_labels)}
     candidate_alerts = list(unique_cluster.values())
 
