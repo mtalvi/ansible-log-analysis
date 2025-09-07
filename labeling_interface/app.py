@@ -31,7 +31,7 @@ class DataLabelingApp:
         try:
             with open(self.data_file, "r") as f:
                 self.data = json.load(f)
-            print(f"Loaded {len(self.data)} data entries")
+            # print(f"Loaded {len(self.data)} data entries")
         except Exception as e:
             print(f"Error loading data: {e}")
             self.data = []
