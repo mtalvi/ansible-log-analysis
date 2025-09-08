@@ -1,5 +1,4 @@
 import asyncio
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,7 +10,6 @@ from alm.pipeline.offline import (
 
 
 async def main():
-    print(os.getenv("DATABASE_URL"))
     await whole_pipeline()
 
 

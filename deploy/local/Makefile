@@ -55,8 +55,8 @@ stop: ## 🛑 Stop all services
 	@echo "👋 All services stopped"
 
 stop-postgres: ## 🛑 Stop PostgreSQL database
-	@echo "   ✓ PostgreSQL stopped"
 	@docker-compose -f compose.yaml down postgres
+	@echo "   ✓ PostgreSQL stopped"
 
 kill-ports: ## 🔌 Kill processes using required ports
 	@fuser -k 7860/tcp || true
