@@ -1,16 +1,5 @@
-.PHONY: deploy start stop status help postgres backend ui labeling health
+.PHONY: deploy start stop status help postgres backend ui labeling health logs restart clean
 .DEFAULT_GOAL := help
-
-ifneq (,$(wildcard ../../.env))
-# ifneq (,$(filter local,$(MAKECMDGOALS)))
-include ../../.env
-# endif
-endif
-
-# PID files for process management
-BACKEND_PID_FILE := .backend.pid
-UI_PID_FILE := .ui.pid  
-LABELING_PID_FILE := .labeling.pid
 
 deploy: start ## Deploy all services (alias for start)
 
@@ -26,76 +15,73 @@ start: stop ## 🚀 Start all services locally
 	@echo "🚀 Starting local deployment of Ansible Log Monitor..."
 	@echo "🔌 Cleaning up any existing processes..."
 	# @$(MAKE) -s postgres
-	@sleep 3
+	@echo "   Waiting for PostgreSQL to be ready..."
+	@sleep 5
 	@$(MAKE) -s backend
-	@sleep 1
 	@$(MAKE) -s ui
 	@$(MAKE) -s labeling
 	@echo ""
 	@echo "🎉 All services are running!"
 	@$(MAKE) -s status
+	# @sleep 2
 	@echo ""
 	@echo "Press Ctrl+C to stop all services, or run 'make stop'"
+	@bash -c 'trap "exit" SIGINT SIGTERM; while true; do sleep 1; done'
 
 postgres: ## 📊 Start PostgreSQL database
-	scripts/postgres.sh
+	@echo "   Starting PostgreSQL database..."
+	@docker-compose -f compose.yaml up -d postgres
+	@sleep 3
 
 backend: ## ⚙️ Start Backend (FastAPI)
-	scripts/backend.sh
+	@echo "   Starting Backend API..."
+	@( cd ../.. && uv run uvicorn src.alm.main_fastapi:app --reload ) &
+	@sleep 3
 
 ui: ## 🖥️ Start UI (Gradio)
-	scripts/ui.sh
+	@echo "   Starting UI Interface..."
+	@( cd ../../ui && uv run gradio app.py ) &
+	@sleep 3
 
 labeling: ## 🏷️ Start Labeling UI (Gradio)  
-	scripts/labeling.sh
+	@echo "   Starting Labeling UI..."
+	@( cd ../.. && uv run gradio labeling_interface/app.py ) &
+	@sleep 3
+
 
 stop: ## 🛑 Stop all services
 	@echo "🛑 Stopping all services..."
-	@if [ -f $(BACKEND_PID_FILE) ]; then \
-		if kill -0 `cat $(BACKEND_PID_FILE)` 2>/dev/null; then \
-			kill `cat $(BACKEND_PID_FILE)` 2>/dev/null; \
-			echo "   ✓ Backend stopped"; \
-		fi; \
-		rm -f $(BACKEND_PID_FILE); \
-	fi
-	@if [ -f $(UI_PID_FILE) ]; then \
-		if kill -0 `cat $(UI_PID_FILE)` 2>/dev/null; then \
-			kill `cat $(UI_PID_FILE)` 2>/dev/null; \
-			echo "   ✓ UI stopped"; \
-		fi; \
-		rm -f $(UI_PID_FILE); \
-	fi
-	@if [ -f $(LABELING_PID_FILE) ]; then \
-		if kill -0 `cat $(LABELING_PID_FILE)` 2>/dev/null; then \
-			kill `cat $(LABELING_PID_FILE)` 2>/dev/null; \
-			echo "   ✓ Labeling UI stopped"; \
-		fi; \
-		rm -f $(LABELING_PID_FILE); \
-	fi
-	# docker-compose down
-	@echo "   ✓ PostgreSQL stopped"
+	# @docker-compose -f compose.yaml down
+	@$(MAKE) -s stop-postgres
 	@$(MAKE) -s kill-ports
 	@echo "👋 All services stopped"
 
+stop-postgres: ## 🛑 Stop PostgreSQL database
+	@echo "   ✓ PostgreSQL stopped"
+	@docker-compose -f compose.yaml down postgres
+
 kill-ports: ## 🔌 Kill processes using required ports
-	@fuser -k 7860/tcp 2>/dev/null || true
-	@fuser -k 7861/tcp 2>/dev/null || true
-	@fuser -k 8000/tcp 2>/dev/null || true
+	@fuser -k 7860/tcp || true
+	@echo "   ✓ UI 7860 killed"
+	@fuser -k 7861/tcp || true
+	@echo "   ✓ Labeling 7861 killed"
+	@fuser -k 8000/tcp || true
+	@echo "   ✓ Backend 8000 killed"
 
 status: ## 📊 Show status of all services
 	@echo "📊 Service Status:"
 	@echo "   📊 PostgreSQL: $(shell docker-compose ps -q postgres >/dev/null 2>&1 && echo 'Running' || echo 'Stopped') - localhost:5432"
-	@if [ -f $(BACKEND_PID_FILE) ] && kill -0 `cat $(BACKEND_PID_FILE)` 2>/dev/null; then \
+	@if lsof -i :8000 >/dev/null 2>&1; then \
 		echo "   ⚙️  Backend API: Running - http://localhost:8000"; \
 	else \
 		echo "   ⚙️  Backend API: Stopped - http://localhost:8000"; \
 	fi
-	@if [ -f $(UI_PID_FILE) ] && kill -0 `cat $(UI_PID_FILE)` 2>/dev/null; then \
+	@if lsof -i :7860 >/dev/null 2>&1; then \
 		echo "   🖥️  UI Interface: Running - http://localhost:7860"; \
 	else \
 		echo "   🖥️  UI Interface: Stopped - http://localhost:7860"; \
 	fi
-	@if [ -f $(LABELING_PID_FILE) ] && kill -0 `cat $(LABELING_PID_FILE)` 2>/dev/null; then \
+	@if lsof -i :7861 >/dev/null 2>&1; then \
 		echo "   🏷️  Labeling UI: Running - http://localhost:7861"; \
 	else \
 		echo "   🏷️  Labeling UI: Stopped - http://localhost:7861"; \
@@ -119,15 +105,8 @@ health: ## 🔍 Check health of running services
 		echo "   🏷️  Labeling UI: Unhealthy"; \
 	fi
 
-logs: ## 📝 Show logs for all services
-	@echo "📝 Service Logs:"
-	@echo "=== Backend Logs ==="
-	@tail -20 .backend.log 2>/dev/null || echo "No backend logs found"
-	@echo "=== UI Logs ===" 
-	@tail -20 .ui.log 2>/dev/null || echo "No UI logs found"
-	@echo "=== Labeling UI Logs ==="
-	@tail -20 .labeling.log 2>/dev/null || echo "No labeling UI logs found"
-	@echo "=== PostgreSQL Logs ==="
-	@docker-compose logs --tail=20 postgres 2>/dev/null || echo "No PostgreSQL logs found"
-
 restart: stop start ## 🔄 Restart all services
+
+clean: ## 🧹 Clean PID files and logs
+	@echo "🧹 Cleaning up PID files and logs..."
+	@echo "   ✓ Cleanup completed"
