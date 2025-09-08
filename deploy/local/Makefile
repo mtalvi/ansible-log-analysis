@@ -14,7 +14,7 @@ help: ## Show this help message
 start: stop ## 🚀 Start all services locally
 	@echo "🚀 Starting local deployment of Ansible Log Monitor..."
 	@echo "🔌 Cleaning up any existing processes..."
-	# @$(MAKE) -s postgres
+	@$(MAKE) -s postgres
 	@echo "   Waiting for PostgreSQL to be ready..."
 	@sleep 5
 	@$(MAKE) -s backend
@@ -23,7 +23,6 @@ start: stop ## 🚀 Start all services locally
 	@echo ""
 	@echo "🎉 All services are running!"
 	@$(MAKE) -s status
-	# @sleep 2
 	@echo ""
 	@echo "Press Ctrl+C to stop all services, or run 'make stop'"
 	@bash -c 'trap "exit" SIGINT SIGTERM; while true; do sleep 1; done'
@@ -51,7 +50,6 @@ labeling: ## 🏷️ Start Labeling UI (Gradio)
 
 stop: ## 🛑 Stop all services
 	@echo "🛑 Stopping all services..."
-	# @docker-compose -f compose.yaml down
 	@$(MAKE) -s stop-postgres
 	@$(MAKE) -s kill-ports
 	@echo "👋 All services stopped"
@@ -87,22 +85,26 @@ status: ## 📊 Show status of all services
 		echo "   🏷️  Labeling UI: Stopped - http://localhost:7861"; \
 	fi
 
+run-whole-training-pipeline: ## 🔍 Run whole training pipeline
+	@echo "🔍 Running whole training pipeline..."
+	@( cd ../.. && uv run init_pipeline.py )
+
 health: ## 🔍 Check health of running services
 	@echo "🔍 Health Checks:"
 	@if curl -s http://localhost:8000/health >/dev/null 2>&1; then \
-		echo "   ⚙️  Backend: Healthy"; \
+		echo "   ⚙️  Backend http://localhost:8000: Healthy"; \
 	else \
-		echo "   ⚙️  Backend: Unhealthy"; \
+		echo "   ⚙️  Backend http://localhost:8000: Unhealthy"; \
 	fi
 	@if curl -s http://localhost:7860 >/dev/null 2>&1; then \
-		echo "   🖥️  UI: Healthy"; \
+		echo "   🖥️  UI http://localhost:7860: Healthy"; \
 	else \
-		echo "   🖥️  UI: Unhealthy"; \
+		echo "   🖥️  UI http://localhost:7860: Unhealthy"; \
 	fi
 	@if curl -s http://localhost:7861 >/dev/null 2>&1; then \
-		echo "   🏷️  Labeling UI: Healthy"; \
+		echo "   🏷️  Labeling UI http://localhost:7861: Healthy"; \
 	else \
-		echo "   🏷️  Labeling UI: Unhealthy"; \
+		echo "   🏷️  Labeling UI http://localhost:7861: Unhealthy"; \
 	fi
 
 restart: stop start ## 🔄 Restart all services

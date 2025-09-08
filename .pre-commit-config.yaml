@@ -1,31 +1,4 @@
 repos:
-  # Warning-only Python linting (won't block commits)
-  # - repo: local
-  #   hooks:
-  #     - id: flake8-warn
-  #       name: Flake8
-  #       entry: bash -c 'cd src/alm && flake8 --extend-ignore=E203,W503 --max-line-length=99 --exclude=.venv . || false'
-  #       language: system
-  #       files: .*\.py$
-  #       pass_filenames: false
-
-  # - repo: local
-  #   hooks:
-  #     - id: isort
-  #       name: isort
-  #       entry: bash -c 'cd src/alm && isort . --skip=.venv || false'
-  #       language: system
-  #       files: .*\.py$
-  #       pass_filenames: false
-
-  # - repo: local
-  #   hooks:
-  #     - id: black
-  #       name: black
-  #       entry: bash -c 'cd src/alm && black . --exclude=.venv || false'
-  #       language: system
-  #       files: .*\.py$
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.12.10
