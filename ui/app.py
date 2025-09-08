@@ -172,7 +172,7 @@ def format_alerts_for_display(alerts: List[Dict[str, Any]]) -> List[Dict[str, An
 
 def on_expert_change(expert: str):
     """Handle expert class dropdown change - now shows clusters first."""
-    if not expert or expert == "Select a expert":
+    if not expert or expert == "Select an expert":
         empty_html = generate_logs_html([])
         return (
             empty_html,
@@ -1248,10 +1248,10 @@ def create_interface():
             with gr.Row():
                 with gr.Column(scale=3):
                     expert_dropdown = gr.Dropdown(
-                        choices=["Select a expert"] + EXPERT_CLASSES,
-                        value="Select a expert",
+                        choices=["Select an expert"] + EXPERT_CLASSES,
+                        value="Select an expert",
                         label="📂 Expert Class",
-                        info="Choose a expert class to filter and analyze alerts",
+                        info="Choose an expert class to filter and analyze alerts",
                         elem_classes=["expert-selector"],
                     )
 
