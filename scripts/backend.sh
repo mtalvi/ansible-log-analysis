@@ -1,1 +1,0 @@
-uv run uvicorn src.alm.main_fastapi:app --reload

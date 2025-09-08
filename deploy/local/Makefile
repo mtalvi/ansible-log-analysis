@@ -16,36 +16,32 @@ start: stop ## 🚀 Start all services locally
 	@echo "🔌 Cleaning up any existing processes..."
 	@$(MAKE) -s postgres
 	@echo "   Waiting for PostgreSQL to be ready..."
-	@sleep 5
 	@$(MAKE) -s backend
 	@$(MAKE) -s ui
 	@$(MAKE) -s labeling
 	@echo ""
 	@echo "🎉 All services are running!"
+	@sleep 5
 	@$(MAKE) -s status
 	@echo ""
 	@echo "Press Ctrl+C to stop all services, or run 'make stop'"
-	@bash -c 'trap "exit" SIGINT SIGTERM; while true; do sleep 1; done'
+	@bash -c 'trap "exit" SIGINT SIGTERM; while true; do sleep 5; done'
 
 postgres: ## 📊 Start PostgreSQL database
 	@echo "   Starting PostgreSQL database..."
 	@docker-compose -f compose.yaml up -d postgres
-	@sleep 3
 
 backend: ## ⚙️ Start Backend (FastAPI)
 	@echo "   Starting Backend API..."
-	@( cd ../.. && uv run uvicorn src.alm.main_fastapi:app --reload ) &
-	@sleep 3
+	@cd ../.. && uv run uvicorn src.alm.main_fastapi:app --reload &
 
 ui: ## 🖥️ Start UI (Gradio)
 	@echo "   Starting UI Interface..."
-	@( cd ../../ui && uv run gradio app.py ) &
-	@sleep 3
+	@cd ../../ui && uv run gradio app.py &
 
 labeling: ## 🏷️ Start Labeling UI (Gradio)  
 	@echo "   Starting Labeling UI..."
-	@( cd ../.. && uv run gradio labeling_interface/app.py ) &
-	@sleep 3
+	@cd ../.. && uv run gradio labeling_interface/app.py &
 
 
 stop: ## 🛑 Stop all services

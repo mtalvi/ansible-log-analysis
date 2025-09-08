@@ -1,1 +1,0 @@
-uv run gradio labeling_interface/app.py
