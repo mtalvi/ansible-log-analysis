@@ -32,8 +32,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/alm"]
 
-[tool.uv.workspace]
-members = ["annotation_interface"]
 
 
 [dependency-groups]
