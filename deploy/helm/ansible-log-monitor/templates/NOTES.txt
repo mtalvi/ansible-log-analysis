@@ -1,0 +1,55 @@
+1. Get the application URL by running these commands:
+{{- if .Values.backend.ingress.enabled }}
+{{- range $host := .Values.backend.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.backend.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.backend.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ .Values.backend.name }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.backend.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ .Values.backend.name }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ .Values.backend.name }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.backend.service.port }}
+{{- else if contains "ClusterIP" .Values.backend.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ .Values.backend.name }},release={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8000 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8000:$CONTAINER_PORT
+{{- end }}
+
+2. Check the status of your deployment:
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+3. View application logs:
+   kubectl logs -n {{ .Release.Namespace }} -l app={{ .Values.backend.name }} -f
+
+4. Access the health check endpoint:
+   curl http://localhost:8000/health
+
+5. API Documentation:
+   Once the application is running, you can access the FastAPI documentation at:
+   - Swagger UI: http://localhost:8000/docs
+   - ReDoc: http://localhost:8000/redoc
+
+6. Database Access:
+   To connect to PostgreSQL:
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Values.postgres.name }} 5432:5432
+   # Then connect with: postgresql://user:password@localhost:5432/logsdb
+
+7. Configuration:
+   The application configuration is stored in the ConfigMap: {{ .Values.backend.name }}-config
+   Secrets are stored in: alm-backend-secrets
+
+8. Useful Commands:
+   # Scale the backend
+   kubectl scale deployment {{ .Values.backend.name }} --replicas=3 -n {{ .Release.Namespace }}
+   
+   # Restart the backend
+   kubectl rollout restart deployment {{ .Values.backend.name }} -n {{ .Release.Namespace }}
+   
+   # View all resources
+   kubectl get all -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
