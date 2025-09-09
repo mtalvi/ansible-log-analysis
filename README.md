@@ -1,17 +1,42 @@
-# Ansible Log Analysis Architecture
+# Ansible Log Analysis Quick Start
 
-Written by Itay Katav, note that everything isn't fully defined yet.   
-I have a couple of assumptions that we need to clarify.
+## Overview
 
-## Problem definition
+This Quick Start guide provides everything you need to deploy and run an intelligent Ansible log analysis system that automatically detects, classifies, and provides solutions for Ansible automation errors. Using AI-powered agents and modern observability tools, this solution transforms manual log analysis into an automated, role-based workflow that helps teams resolve issues faster.
 
-Given a live stream of Ansible logs, our goal is to:
+## Table of Contents
 
-* Analyze the logs and detect errors.  
-* Classify the error for the authenticated user.  
-* Given the error log, suggest a step-by-step solution.
+1. [Overview](#overview)
+2. [Problem We Solve](#problem-we-solve)
+3. [Current Manual Process](#current-manual-process)
+4. [Our Solution Stack](#our-solution-stack)
+5. [High-Level Solution](#high-level-solution)
+6. [Agentic Workflow](#agentic-workflow)
+   - [Step 1: Embedding and Clustering](#step-1-embedding-and-clustering)
+   - [Step 2: Summary and Expert Classification per Log Template](#step-2-summary-and-expert-classification-per-log-template)
+   - [Step 3: Creating a step-by-step solution](#step-3-creating-a-step-by-step-solution)
+   - [Step 4: Store the data](#step-4-store-the-data)
+   - [Training and Inference stages](#training-and-inference-stages)
+7. [User Interface](#user-interface)
+8. [Annotation Interface](#annotation-interface)
+9. [Requirements](#requirements)
+   - [Software Requirements](#software-requirements)
+   - [Minimum Hardware Requirements](#minimum-hardware-requirements)
+10. [Deployment](#deployment)
+    - [Quick Start - Local Development](#quick-start---local-development)
+    - [Deploy on the Cluster](#deploy-on-the-cluster)
 
-## How is this process done currently?
+## Problem We Solve
+
+**The Challenge:** Organizations running Ansible automation at scale face significant challenges when errors occur. Log analysis is manual, time-consuming, and requires specialized knowledge across multiple domains (AWS, Kubernetes, networking, etc.). When failures happen, teams spend valuable time searching through logs, identifying the right experts, and waiting for solutions.
+
+**Our Solution:** An AI-powered log analysis system that automatically:
+- Detects and categorizes Ansible errors in real-time
+- Routes issues to appropriate experts based on authorization levels
+- Provides contextual, step-by-step solutions using AI agents
+- Learns from historical resolutions to improve future recommendations
+
+## Current Manual Process
 
 A human analyst is:
 
@@ -47,18 +72,6 @@ A human analyst is:
 4. The log analyst using the **UI** interacts with the logs and gets suggestions on how to solve the error, depending on their authorization. 
 
 <img src="figures/high_level_architecture.png" alt="high_level_architecture" style="width:65%;">
-
-### Ingestion \- using Alloy/Promtail
-
-Using Loki/Promtail, we will process every Ansible log once with a predefined regex to generate labels using regex groups:
-
-* Timestamp.  
-* Log\_cluster\_source.  
-* Log\_file\_source.  
-* Log\_level.  
-* Log\_message.
-
-Labels will help us search for specific related logs at inference time or query by the labels.
 
 ## Agentic Workflow:
 
@@ -108,7 +121,7 @@ Train the clustering algorithm to cluster the logs by log-template.
 
 Load the trained clustering model.
 
-## UI
+## User Interface
 
 * Each expert selects their rule, dependent on their authorization. Current rules are:  
   * Kubernetes / OpenShift Cluster Admins  
@@ -129,7 +142,7 @@ After selecting the authorization class "expert":
 
 <img src="figures/step-by-step.png" alt="Step-by-step Solution" style="width:65%;">
 
-## Annotation interface
+## Annotation Interface
 
 For improving our agentic workflow, context PDFs, and other context we need to understand the errors. To do so, we have a data annotation interface for annotating Ansible error log pipeline outputs,  
 Where we see the agentic workflow:
@@ -142,8 +155,30 @@ See the interface below:
 
 <img src="figures/anotation_interface.png" alt="Annotation Interface" style="width:65%;">
 
+## Requirements
 
-## Deploy
+### Software Requirements
+
+#### For Production Cluster Deployment
+- **OpenShift Cluster** <TODO add version>
+- **Helm** <TODO add version>
+- **oc CLI** (for OpenShift)
+
+
+### Minimum Hardware Requirements
+
+#### Production Cluster Environment
+
+<TODO>
+
+
+#### Scalability Considerations
+
+<TODO>
+- **GPU** for faster embedding.
+
+
+## Deployment
 
 The Ansible Log Monitor can be deployed in multiple environments depending on your needs. Choose the deployment method that best fits your requirements:
 
