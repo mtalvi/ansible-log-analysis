@@ -8,7 +8,6 @@ import json
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
-import pandas as pd
 
 
 class DataAnnotationApp:
