@@ -188,24 +188,57 @@ For development and testing, you can run all services locally using the provided
 
 #### Prerequisites
 - Docker and Docker Compose
-- Python 3.8+ with `uv` package manager
-- Make
+- Python 3.12+ with `uv` package manager
+- Make (for running deployment commands)
 
 #### Deploy Locally
+
+Follow these steps to set up and run the Ansible Log Monitor on your local development environment:
+
+**1. Clone and Setup Repository**
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd ansible-logs
-uv sync
 
-# Start all services (PostgreSQL, Backend API, UI, Annotation Interface)
+# Install Python dependencies using uv
+uv sync
+```
+
+**2. Configure Environment Variables**
+```bash
+# Copy the environment template and configure your settings
+cp .env.example .env
+
+# Edit .env with your API keys and configuration:
+# - OPENAI_API_ENDPOINT: VLLM (OpenAI) compitable endpoint
+# - OPENAI_API_TOKEN: your token to the endpoint
+# - OPENAI_MODEL: Model to use (e.g., Granite-3.3-8B-Instruct	)
+# - LANGSMITH_API_KEY: Optional, for LangSmith tracing
+```
+
+**3. Start All Services**
+```bash
+# Run the complete training pipeline
+make local/run-whole-training-pipeline
+
+# Launch all services in the background
 make local/start
 
-# Check service status
+# Perform status check to see which services are running
 make local/status
 
-# Stop all services
+# Stop all services when done
 make local/stop
+```
+
+**Additional Commands**
+```bash
+# Restart all services
+make local/restart
+
+# View all available local commands
+make local/help
 ```
 
 ### Deploy on the Cluster

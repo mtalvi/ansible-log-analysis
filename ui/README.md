@@ -68,3 +68,7 @@ The UI expects alerts with the following structure:
 - `logSummary`: Brief summary of the alert
 - `expertClassification`: Category classification
 - `labels`: Key-value metadata labels
+
+# Deployment of all apps
+
+See [Local deployment](../../README.md#deploy-locally)

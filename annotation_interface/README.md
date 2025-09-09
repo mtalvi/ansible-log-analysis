@@ -19,3 +19,7 @@ python app.py
 ## Feedback Storage
 
 Feedback is automatically saved to `data/annotation_feedback.json`
+
+# Deployment of all apps
+
+Please see [Local deployment](../../README.md#deploy-locally)
