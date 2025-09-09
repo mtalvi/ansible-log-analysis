@@ -1,4 +1,4 @@
-.PHONY: deploy start stop status help postgres backend ui labeling health logs restart clean
+.PHONY: deploy start stop status help postgres backend ui annotation health logs restart clean
 .DEFAULT_GOAL := help
 
 deploy: start ## Deploy all services (alias for start)
@@ -18,7 +18,7 @@ start: stop ## 🚀 Start all services locally
 	@echo "   Waiting for PostgreSQL to be ready..."
 	@$(MAKE) -s backend
 	@$(MAKE) -s ui
-	@$(MAKE) -s labeling
+	@$(MAKE) -s annotation
 	@echo ""
 	@echo "🎉 All services are running!"
 	@sleep 5
@@ -39,9 +39,9 @@ ui: ## 🖥️ Start UI (Gradio)
 	@echo "   Starting UI Interface..."
 	@cd ../../ui && uv run gradio app.py &
 
-labeling: ## 🏷️ Start Labeling UI (Gradio)  
-	@echo "   Starting Labeling UI..."
-	@cd ../.. && uv run gradio labeling_interface/app.py &
+annotation: ## 🏷️ Start Annotation UI (Gradio)  
+	@echo "   Starting Annotation UI..."
+	@cd ../.. && uv run gradio annotation_interface/app.py &
 
 
 stop: ## 🛑 Stop all services
@@ -58,7 +58,7 @@ kill-ports: ## 🔌 Kill processes using required ports
 	@fuser -k 7860/tcp || true
 	@echo "   ✓ UI 7860 killed"
 	@fuser -k 7861/tcp || true
-	@echo "   ✓ Labeling 7861 killed"
+	@echo "   ✓ Annotation 7861 killed"
 	@fuser -k 8000/tcp || true
 	@echo "   ✓ Backend 8000 killed"
 
@@ -76,9 +76,9 @@ status: ## 📊 Show status of all services
 		echo "   🖥️  UI Interface: Stopped - http://localhost:7860"; \
 	fi
 	@if lsof -i :7861 >/dev/null 2>&1; then \
-		echo "   🏷️  Labeling UI: Running - http://localhost:7861"; \
+		echo "   🏷️  Annotation UI: Running - http://localhost:7861"; \
 	else \
-		echo "   🏷️  Labeling UI: Stopped - http://localhost:7861"; \
+		echo "   🏷️  Annotation UI: Stopped - http://localhost:7861"; \
 	fi
 
 run-whole-training-pipeline: ## 🔍 Run whole training pipeline
@@ -98,9 +98,9 @@ health: ## 🔍 Check health of running services
 		echo "   🖥️  UI http://localhost:7860: Unhealthy"; \
 	fi
 	@if curl -s http://localhost:7861 >/dev/null 2>&1; then \
-		echo "   🏷️  Labeling UI http://localhost:7861: Healthy"; \
+		echo "   🏷️  Annotation UI http://localhost:7861: Healthy"; \
 	else \
-		echo "   🏷️  Labeling UI http://localhost:7861: Unhealthy"; \
+		echo "   🏷️  Annotation UI http://localhost:7861: Unhealthy"; \
 	fi
 
 restart: stop start ## 🔄 Restart all services

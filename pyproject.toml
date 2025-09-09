@@ -33,7 +33,7 @@ build-backend = "hatchling.build"
 packages = ["src/alm"]
 
 [tool.uv.workspace]
-members = ["labeling_ui"]
+members = ["annotation_interface"]
 
 
 [dependency-groups]
