@@ -1,4 +1,3 @@
-from langchain_openai import ChatOpenAI
 from src.alm.llm import get_llm
 from src.alm.agents.state import GrafanaAlert
 from src.alm.agents.node import (
