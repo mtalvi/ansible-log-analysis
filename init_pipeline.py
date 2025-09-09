@@ -1,12 +1,8 @@
 import asyncio
 from dotenv import load_dotenv
+from alm.pipeline.offline import whole_pipeline
 
 load_dotenv()
-
-from alm.pipeline.offline import (
-    only_generate_step_by_step_solutions,
-    whole_pipeline,
-)
 
 
 async def main():

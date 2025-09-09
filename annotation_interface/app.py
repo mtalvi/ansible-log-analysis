@@ -7,7 +7,7 @@ import gradio as gr
 import json
 import os
 from datetime import datetime
-from typing import List, Dict, Any, Tuple
+from typing import Tuple
 
 
 class DataAnnotationApp:
@@ -91,7 +91,7 @@ class DataAnnotationApp:
                 "No data",
                 "No data",
                 "",
-                f"0 / 0",
+                "0 / 0",
                 self.get_feedback_table(),
             )
 

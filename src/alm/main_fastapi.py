@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
-import os
 import pkgutil
 from pathlib import Path
 from typing import Optional
+from fastapi import APIRouter, FastAPI
 
 from dotenv import load_dotenv
 
 load_dotenv()
-
-from fastapi import APIRouter, FastAPI
 
 
 def create_app() -> FastAPI:

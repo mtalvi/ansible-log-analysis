@@ -6,8 +6,6 @@ from typing import Optional
 
 from src.alm.models import GrafanaAlert
 from src.alm.patterns.ingestion import (
-    AAP_LOG_ERROR,
-    AAP_LOG_FATAL,
     TESTING_LOG_ERROR,
     TESTING_LOG_FATAL,
     TESTING_LOG_FAILED,

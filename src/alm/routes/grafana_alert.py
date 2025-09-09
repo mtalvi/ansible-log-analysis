@@ -1,13 +1,10 @@
 from typing import List
-from datetime import datetime
-from langchain_openai import ChatOpenAI
 from fastapi import APIRouter, Depends, Query, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.alm.database import get_session_gen
 from src.alm.models import GrafanaAlert
 from src.alm.agents.graph import get_graph
-from src.alm.llm import get_llm
 
 router = APIRouter(prefix="/grafana-alert", tags=["grafana-alert"])
 
