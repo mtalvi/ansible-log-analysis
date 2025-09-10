@@ -1,6 +1,10 @@
 .PHONY: deploy start stop status help postgres backend ui annotation health logs restart clean
 .DEFAULT_GOAL := help
 
+include ../../.env
+export $(shell sed 's/=.*//' ../../.env | xargs)
+
+
 deploy: start ## Deploy all services (alias for start)
 
 help: ## Show this help message
@@ -21,7 +25,7 @@ start: stop ## 🚀 Start all services locally
 	@$(MAKE) -s annotation
 	@echo ""
 	@echo "🎉 All services are running!"
-	@sleep 5
+	@sleep 8
 	@$(MAKE) -s status
 	@echo ""
 	@echo "Press Ctrl+C to stop all services, or run 'make stop'"
