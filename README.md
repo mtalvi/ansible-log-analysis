@@ -182,6 +182,13 @@ See the interface below:
 
 The Ansible Log Monitor can be deployed in multiple environments depending on your needs. Choose the deployment method that best fits your requirements:
 
+### Mock Data (Temporary for Development)
+
+To use add data during development, add your log files to the `data/logs/failed` directory. 
+
+Each log should be saved as a separate `.txt` file (e.g., `<filename>.txt`).
+For example `data/logs/failed/example.txt`
+
 ### Quick Start - Local Development
 
 For development and testing, you can run all services locally using the provided Makefile:
