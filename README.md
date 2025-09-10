@@ -1,8 +1,6 @@
 # Ansible Log Analysis Quick Start
 
-## Overview
-
-This Quick Start guide provides everything you need to deploy and run an intelligent Ansible log analysis system that automatically detects, classifies, and provides solutions for Ansible automation errors. Using AI-powered agents and modern observability tools, this solution transforms manual log analysis into an automated, role-based workflow that helps teams resolve issues faster.
+Welcome to the Ansible log analysis Quick Start! a system that automatically detects errors, classifies them by authorization level, and generates intelligent step-by-step solutions. Our system eliminates manual log searching and reduces resolution time by routing issues to the appropriate experts.
 
 ## Table of Contents
 
