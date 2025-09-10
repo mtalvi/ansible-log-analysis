@@ -195,7 +195,7 @@ For development and testing, you can run all services locally using the provided
 
 #### Prerequisites
 - Docker and Docker Compose
-- Python 3.12+ with `uv` package manager
+- `uv` package manager with Python 3.12+
 - Make (for running deployment commands)
 
 #### Deploy Locally
@@ -225,12 +225,18 @@ cp .env.example .env
 ```
 
 **3. Start All Services**
+In short:
 ```bash
-# Run the complete training pipeline
+make local/start
 make local/run-whole-training-pipeline
+```
 
+```bash
 # Launch all services in the background
 make local/start
+
+# Run the complete training pipeline (do it after local/start)
+make local/run-whole-training-pipeline
 
 # Perform status check to see which services are running
 make local/status
