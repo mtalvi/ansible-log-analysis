@@ -3,9 +3,6 @@ name: Build and push image
 on:
   workflow_dispatch:
 
-env:
-  BACKEND_DIR: backend
-
 jobs:
   build-image:
     name: Build and Push container image
@@ -22,9 +19,9 @@ jobs:
           - name: alm-annotation-interface
             context: annotation_interface
             image-name: alm-annotation-interface
-    defaults:
-      run:
-        working-directory: ${{ env.BACKEND_DIR }}
+          - name: alm-clustering
+            context: services/clustering
+            image-name: alm-clustering
 
     steps:
       - name: Checkout repository
