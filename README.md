@@ -195,6 +195,7 @@ For development and testing, you can run all services locally using the provided
 - Docker and Docker Compose
 - `uv` package manager with Python 3.12+
 - Make (for running deployment commands)
+- Make sure you have added the mock data as described in the [### Mock Data (Temporary for Development)](#mock-data-temporary-for-development) section.
 
 #### Deploy Locally
 
@@ -216,7 +217,7 @@ uv sync
 cp .env.example .env
 
 # Edit .env with your API keys and configuration:
-# - OPENAI_API_ENDPOINT: VLLM (OpenAI) compitable endpoint
+# - OPENAI_API_ENDPOINT: VLLM (OpenAI) compitable endpoint (some endpoint need to add /v1 as suffix)
 # - OPENAI_API_TOKEN: your token to the endpoint
 # - OPENAI_MODEL: Model to use (e.g., Granite-3.3-8B-Instruct	)
 # - LANGSMITH_API_KEY: Optional, for LangSmith tracing
@@ -254,7 +255,9 @@ make local/help
 
 ### Deploy on the Cluster
 
-For production environments, deploy using Helm charts to OpenShift:
+TODO
+
+<!-- For production environments, deploy using Helm charts to OpenShift:
 
 #### Prerequisites
 - OpenShift cluster
@@ -285,4 +288,4 @@ make helm/status                  # Check deployment status
 make helm/logs-backend           # View backend application logs
 make helm/port-forward-backend   # Port forward to access backend locally
 make helm/uninstall             # Remove the deployment
-```
+``` -->
