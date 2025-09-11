@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 
 
 # Configuration
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 # Log Categories (as defined in README)
 EXPERT_CLASSES = [
@@ -95,6 +95,12 @@ async def fetch_unique_clusters_by_expert_class(
     """Fetch unique log clusters for an expert class from the backend."""
     try:
         async with httpx.AsyncClient() as client:
+            print(
+                "http://localhost:8000/grafana-alert/unique-clusters/?expert_class=Kubernetes%20%2F%20OpenShift%20Cluster%20Admins"
+            )
+            print(
+                f"{BACKEND_URL}/grafana-alert/unique-clusters/?expert_class={expert_class}"
+            )
             response = await client.get(
                 f"{BACKEND_URL}/grafana-alert/unique-clusters/?expert_class={expert_class}"
             )
@@ -111,6 +117,12 @@ async def fetch_alerts_by_expert_class_and_cluster(
     """Fetch alerts filtered by expert class and log cluster from the backend."""
     try:
         async with httpx.AsyncClient() as client:
+            print(
+                f"{BACKEND_URL}/grafana-alert/by-expert-class-and-log-cluster/?expert_class={expert_class}&log_cluster={log_cluster}"
+            )
+            print(
+                "http://localhost:8000/grafana-alert/by-expert-class/?expert_class=Kubernetes%20%2F%20OpenShift%20Cluster%20Admins"
+            )
             response = await client.get(
                 f"{BACKEND_URL}/grafana-alert/by-expert-class-and-log-cluster/?expert_class={expert_class}&log_cluster={log_cluster}"
             )

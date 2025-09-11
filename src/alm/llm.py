@@ -3,12 +3,12 @@ import os
 from langchain_openai import ChatOpenAI
 
 # Constants for API configuration
-API_KEY: str = os.getenv("OPENAI_API_TOKEN", "")
-BASE_URL: str = os.getenv("OPENAI_API_ENDPOINT", "")
+API_KEY: str = os.getenv("OPENAI_API_TOKEN")
+BASE_URL: str = os.getenv("OPENAI_API_ENDPOINT")
 
 # Constants for model configuration
-MODEL: str = os.getenv("OPENAI_MODEL", "llama-4-scout-17b-16e-w4a16")
-TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
+MODEL: str = os.getenv("OPENAI_MODEL")
+TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE"))
 
 if not API_KEY or not BASE_URL:
     raise ValueError(

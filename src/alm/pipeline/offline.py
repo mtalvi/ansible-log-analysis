@@ -88,7 +88,7 @@ async def _pipeline(
             alerts = await db.exec(select(GrafanaAlert))
             alerts = alerts.all()
             print(f"alerts loaded from db {len(alerts)}")
-    # alerts = alerts[:20]
+    # alerts = alerts[:10]
 
     # Cluster logs
     cluster_labels = train_embed_and_cluster_logs(

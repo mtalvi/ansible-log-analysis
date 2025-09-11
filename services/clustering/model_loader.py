@@ -34,8 +34,8 @@ def _fetch_model_registry_credentials() -> tuple[str, str, str]:
         "oc whoami -t", shell=True, capture_output=True, text=True, check=True
     ).stdout.strip()
     logger.debug(f"author_value = {author_value}")
-    mr_namespace = os.getenv("MODEL_REGISTRY_NAMESPACE", "rhoai-model-registries")
-    mr_container = os.getenv("MODEL_REGISTRY_CONTAINER", "modelregistry-sample")
+    mr_namespace = os.getenv("MODEL_REGISTRY_NAMESPACE")
+    mr_container = os.getenv("MODEL_REGISTRY_CONTAINER")
 
     cmd = (
         f"oc get svc {mr_container} -n {mr_namespace} -o json | "

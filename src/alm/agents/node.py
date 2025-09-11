@@ -102,9 +102,7 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
 
 
 def _embed_logs(logs: List[str]):
-    model_name = os.getenv(
-        "SENTENCE_TRANSFORMER_MODEL_NAME", "Qwen/Qwen3-Embedding-0.6B"
-    )
+    model_name = os.getenv("SENTENCE_TRANSFORMER_MODEL_NAME")
     encoder = SentenceTransformer(model_name)
 
     embeddings = encoder.encode(
@@ -119,7 +117,7 @@ def _embed_logs(logs: List[str]):
 
 
 def _cluster_logs(embeddings: np.ndarray):
-    algorithm = os.getenv("CLUSTERING_ALGORITHM", "meanshift")
+    algorithm = os.getenv("CLUSTERING_ALGORITHM")
     if algorithm.lower() == "dbscan":
         # DBSCAN - Good for finding clusters of varying shapes and handling noise
         # Uses cosine distance for text similarity
