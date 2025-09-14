@@ -14,9 +14,9 @@ services:
   #   image: grafana/promtail:latest
   #   user: "root"
   #   volumes:
-  #     - ./config/loki:/temp
-  #     # - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml
-  #   command: -config.file=/etc/promtail/config.yml
+  #     - ./config/promtail/promtail-local-config.yaml:/etc/promtail/config.yaml:Z
+  #     - ../../data/logs/:/var/log/ansible_logs:Z
+  #   command: -config.file=/etc/promtail/config.yaml
   #   networks:
   #     - alm
 
