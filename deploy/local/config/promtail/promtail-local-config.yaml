@@ -1,0 +1,33 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+- job_name: ansible_logs
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: general_logs
+      __path__: /var/log/ansible_logs/*.txt
+  - targets:
+      - localhost
+    labels:
+      job: error_logs
+      __path__: /var/log/ansible_logs/error/*.txt
+  - targets:
+      - localhost
+    labels:
+      job: failed_logs
+      __path__: /var/log/ansible_logs/failed/*.txt
+  - targets:
+      - localhost
+    labels:
+      job: successful_logs
+      __path__: /var/log/ansible_logs/successful/*.txt
