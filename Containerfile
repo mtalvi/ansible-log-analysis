@@ -12,9 +12,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-ENV UV_PROJECT_ENVIRONMENT="/usr/local/"
-# RUN uv sync --frozen --no-dev
-RUN uv pip install -r pyproject.toml
+RUN uv sync
+ENV VIRTUAL_ENV=.venv
+ENV PATH=".venv/bin:$PATH"
 
 # Copy source code
 COPY src/ ./src/
