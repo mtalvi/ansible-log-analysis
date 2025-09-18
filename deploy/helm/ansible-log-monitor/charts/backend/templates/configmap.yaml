@@ -1,0 +1,22 @@
+{{- if .Values.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend.fullname" . }}-config
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+data:
+  {{- if .Values.config.openai }}
+  OPENAI_TEMPERATURE: {{ .Values.config.openai.temperature | quote }}
+  {{- end }}
+  {{- if .Values.config.langsmith }}
+  LANGSMITH_TRACING: {{ .Values.config.langsmith.tracing | quote }}
+  LANGSMITH_API_KEY: {{ .Values.config.langsmith.apiKey | quote }}
+  LANGSMITH_PROJECT: {{ .Values.config.langsmith.project | quote }}
+  {{- end }}
+  {{- if .Values.config.clustering }}
+  SENTENCE_TRANSFORMER_MODEL_NAME: {{ .Values.config.clustering.sentenceTransformerModelName | quote }}
+  CLUSTERING_ALGORITHM: {{ .Values.config.clustering.algorithm | quote }}
+  TMP_CLUSTER_MODEL_PATH: {{ .Values.config.clustering.tmpClusterModelPath | quote }}
+  {{- end }}
+{{- end }}
