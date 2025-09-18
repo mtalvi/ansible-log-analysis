@@ -1,5 +1,7 @@
 FROM registry.access.redhat.com/ubi8/python-312
 
+USER root
+
 # Install uv pointing to the uv image and coping from there
 # /uv and /uvx are the source files copied from the uv image
 # /bin is the destination
@@ -9,10 +11,11 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.12 /uv /uvx /bin/
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
+# COPY uv.lock ./
 
 # Install dependencies
-RUN uv sync
+RUN uv sync --no-dev
 ENV VIRTUAL_ENV=.venv
 ENV PATH=".venv/bin:$PATH"
 
@@ -23,4 +26,4 @@ COPY src/ ./src/
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["uv", "run", "-m", "uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 
+ENTRYPOINT ["python", "-m", "uvicorn", "src.alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 
