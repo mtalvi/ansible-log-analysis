@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "annotation-interface.fullname" . }}-config
+  labels:
+    {{- include "annotation-interface.labels" . | nindent 4 }}
+data:
+  {{- with .Values.configMap }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
