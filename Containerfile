@@ -21,6 +21,8 @@ ENV PATH=".venv/bin:$PATH"
 
 # Copy source code
 COPY src/ ./src/
+COPY init_pipeline.py .
+COPY data/ ./data/
 
 # Expose port
 EXPOSE 8000

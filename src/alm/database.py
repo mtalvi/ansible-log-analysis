@@ -8,7 +8,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.alm.models import GrafanaAlert
 
 # Create SQLModel engine
-engine = create_async_engine(os.getenv("DATABASE_URL"))
+engine = create_async_engine(
+    os.getenv("DATABASE_URL")
+    .replace("+asyncpg", "")
+    .replace("postgresql", "postgresql+asyncpg")
+)
 
 
 # Create tables
