@@ -19,13 +19,20 @@ RUN uv sync --no-dev
 ENV VIRTUAL_ENV=.venv
 ENV PATH=".venv/bin:$PATH"
 
+# Set Hugging Face cache directory
+ENV HF_HOME=/hf_cache
+
+RUN  mkdir -p /hf_cache && \
+    chmod -R 777 /hf_cache && \
+    chmod -R +r .
+
 # Copy source code
 COPY src/ ./src/
-COPY init_pipeline.py .
 COPY data/ ./data/
+COPY init_pipeline.py .
 
 # Expose port
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["python", "-m", "uvicorn", "src.alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 
+ENTRYPOINT ["uvicorn", "src.alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 

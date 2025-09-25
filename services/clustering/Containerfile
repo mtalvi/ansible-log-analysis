@@ -18,6 +18,12 @@ RUN uv sync --no-dev
 ENV VIRTUAL_ENV=.venv
 ENV PATH=".venv/bin:$PATH"
 
+ENV HF_HOME=/hf_cache
+
+RUN  mkdir -p /hf_cache && \
+    chmod -R 777 /hf_cache && \
+    chmod -R +r .
+
 # Copy source code
 COPY app.py model_loader.py .
 
@@ -25,4 +31,4 @@ COPY app.py model_loader.py .
 EXPOSE 8001
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["python", "uvicorn", "app", "--host", "0.0.0.0", "--port", "8001"] 
+ENTRYPOINT ["uvicorn", "app", "--host", "0.0.0.0", "--port", "8001"] 
