@@ -255,37 +255,52 @@ make local/help
 
 ### Deploy on the Cluster
 
-TODO
+!!!
+NOTE currently you must to create a secret in the namesapce named `model-secret` with the values:
+OPENAI_API_TOKEN = <your MaaS token>
+OPENAI_API_ENDPOINT = <your MaaS endpoint>
+!!!
 
-<!-- For production environments, deploy using Helm charts to OpenShift:
+For production deployment on OpenShift clusters:
 
 #### Prerequisites
-- OpenShift cluster
-- Helm 3.x
-- oc configured for your cluster
+- OpenShift CLI (`oc`) installed and configured
+- Helm 3.x installed
+- Access to an OpenShift cluster
+- MaaS API Token for AI services
 
-#### Quick Deploy to OpenShift
+#### Quick Deployment
 ```bash
-# Deploy to specific namespace
-make helm/deploy NAMESPACE=alm-prod
+# Install the application (uses current OpenShift project)
+make deploy/install OPENAI_API_TOKEN=your-token-here
 
+# With custom namespace
+make deploy/install NAMESPACE=ansible-logs-monitor OPENAI_API_TOKEN=your-token-here
 ```
 
-#### Production Configuration
+#### Access Services
 ```bash
-# Deploy with production settings
-helm upgrade --install alm ./deploy/helm/ansible-log-monitor \
-  --set backend.replicas=3 \
-  --set backend.ingress.enabled=true \
-  --set backend.ingress.hosts[0].host=alm.yourdomain.com \
-  --set postgres.persistence.size=50Gi
+# Forward UI to localhost:7860
+make deploy/port-forward-ui
+
+# Forward Backend API to localhost:8000
+make deploy/port-forward-backend
+
+# Forward Annotation Interface to localhost:7861
+make deploy/port-forward-annotation
+
+# Forward Grafana to localhost:3000
+make deploy/port-forward-grafana
 ```
 
-#### OpenShift Management Commands
+#### Uninstall
 ```bash
-make helm/help                    # Show all helm commands
-make helm/status                  # Check deployment status
-make helm/logs-backend           # View backend application logs
-make helm/port-forward-backend   # Port forward to access backend locally
-make helm/uninstall             # Remove the deployment
-``` -->
+# Remove from current project
+make deploy/uninstall
+
+# Remove from specific namespace
+make deploy/uninstall NAMESPACE=ansible-logs-monitor
+```
+
+For detailed configuration options and troubleshooting, see [deploy/helm/README.md](deploy/helm/README.md).
+
