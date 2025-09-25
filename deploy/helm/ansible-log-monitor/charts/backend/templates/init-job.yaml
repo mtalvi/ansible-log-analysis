@@ -5,10 +5,10 @@ metadata:
   labels:
     {{- include "backend.labels" . | nindent 4 }}
     app.kubernetes.io/component: init
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-5"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  # annotations:
+  #   "helm.sh/hook": pre-install,pre-upgrade
+  #   "helm.sh/hook-weight": "-5"
+  #   "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   template:
     metadata:
@@ -37,7 +37,7 @@ spec:
             - |
               until pg_isready -d "$DATABASE_URL"; do
                 echo "Waiting for PostgreSQL to be ready..."
-                sleep 2
+                sleep 5
               done
               echo "PostgreSQL is ready!"
           env:
@@ -63,6 +63,8 @@ spec:
           {{- if .Values.config }}
             - configMapRef:
                 name: {{ include "backend.fullname" . }}-config
+            - secretRef:
+                name: model-secret
           {{- end }}
           {{- with .Values.resources }}
           resources:

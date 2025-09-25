@@ -7,6 +7,7 @@ metadata:
     {{- include "backend.labels" . | nindent 4 }}
 data:
   {{- if .Values.config.openai }}
+  OPENAI_MODEL: {{ .Values.config.openai.model | quote }}
   OPENAI_TEMPERATURE: {{ .Values.config.openai.temperature | quote }}
   {{- end }}
   {{- if .Values.config.langsmith }}

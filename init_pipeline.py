@@ -1,6 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from alm.pipeline.offline import whole_pipeline
+from src.alm.pipeline.offline import whole_pipeline
 
 load_dotenv()
 

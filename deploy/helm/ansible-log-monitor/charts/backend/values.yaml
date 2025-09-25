@@ -78,11 +78,11 @@ ingress:
 
 resources:
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 1000m
+    memory: 5Gi
   requests:
-    cpu: 250m
-    memory: 256Mi
+    cpu: 100m
+    memory: 1Gi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
@@ -125,6 +125,9 @@ tolerations: []
 
 affinity: {}
 
+backend:
+  env:
+
 # Environment variables for the FastAPI application
 env:
   - name: DATABASE_URL
@@ -140,22 +143,23 @@ config:
   # Application configuration
   logLevel: "INFO"
   debug: false
-  
+
   # OpenAI configuration
   openai:
+    model: "llama-4-scout-17b-16e-w4a16"
     temperature: "0.7"
-  
+
   # LangSmith configuration
   langsmith:
-    tracing: "true"
+    tracing: false
     apiKey: "your-langsmith-api-key"
     project: "ansible-log-monitor"
   
   # Clustering configuration
   clustering:
-    sentenceTransformerModelName: "all-MiniLM-L6-v2"
-    algorithm: "kmeans"
-    tmpClusterModelPath: "/tmp/cluster_models"
+    sentenceTransformerModelName: "Qwen/Qwen3-Embedding-0.6B"
+    algorithm: "meanshift"
+    tmpClusterModelPath: "clustering_model.joblib"
 
 # RBAC configuration
 rbac:

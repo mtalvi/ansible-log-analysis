@@ -137,12 +137,31 @@ tolerations: []
 
 affinity: {}
 
+# Persistent storage configuration
+persistence:
+  # Enable persistent storage for data
+  enabled: true
+  # Storage class for the persistent volume claim
+  # Set to "-" to use default storage class
+  storageClass: ""
+  # Size of the persistent volume
+  size: 10Gi
+  # Access modes for the persistent volume
+  accessModes:
+    - ReadWriteOnce
+  # Annotations for the persistent volume claim
+  annotations: {}
+  # Selector to match an existing persistent volume
+  # selector: {}
+  # Name of an existing persistent volume claim to use
+  # existingClaim: ""
+
 # Application specific configuration
 appConfig:
   # Data file path for the annotation interface
-  dataFile: "/tmp/logs/failed_lines_extracted_with_summaries.json"
+  dataFile: "/app/data/logs/failed_lines_extracted_with_summaries.json"
   # Feedback directory where annotations will be stored
-  feedbackDir: "/tmp"
+  feedbackDir: "/app/data"
   # Gradio server configuration
   serverName: "0.0.0.0"
   serverPort: 7861
@@ -174,6 +193,6 @@ configMap:
       share: false
     
     data:
-      input_file: "/tmp/logs/failed_lines_extracted_with_summaries.json"
-      feedback_dir: "/tmp"
-      feedback_file: "/tmp/annotation_feedback.json"
+      input_file: "/app/data/logs/failed_lines_extracted_with_summaries.json"
+      feedback_dir: "/app/data"
+      feedback_file: "/app/data/annotation_feedback.json"
