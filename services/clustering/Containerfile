@@ -25,10 +25,10 @@ RUN  mkdir -p /hf_cache && \
     chmod -R +r .
 
 # Copy source code
-COPY app.py model_loader.py .
+COPY model_loader.py main.py .
 
 # Expose port
 EXPOSE 8001
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["uvicorn", "app", "--host", "0.0.0.0", "--port", "8001"] 
+ENTRYPOINT ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"] 

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "clustering.fullname" . }}-test-connection"
+  labels:
+    {{- include "clustering.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "clustering.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

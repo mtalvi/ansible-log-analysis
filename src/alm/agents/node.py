@@ -12,6 +12,7 @@ from src.alm.agents.output_scheme import (
     RouterStepByStepSolutionSchema,
 )
 import numpy as np
+from src.alm.utils.minio import upload_model_to_minio
 
 # Load the user message (prompt) from the markdown file
 with open("src/alm/agents/prompts/summarize_error_log.md", "r") as f:
@@ -197,6 +198,11 @@ def train_embed_and_cluster_logs(
     cluster_labels = _handle_outlaier_cluster(cluster_labels)
 
     if save_cluster_model:
-        joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
+        if os.getenv("IS_LOCAL_DEPLOY"):
+            joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
+        else:
+            upload_model_to_minio(
+                cluster_model, os.getenv("MINIO_BUCKET_NAME"), "clustering_model.joblib"
+            )
 
     return cluster_labels.tolist()

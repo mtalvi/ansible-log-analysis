@@ -1,0 +1,54 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: alm-ui
+  namespace: alm-itay
+  uid: 334e611c-f617-4ca2-9632-b8eed3a68f4b
+  resourceVersion: '39942681'
+  creationTimestamp: '2025-09-18T14:03:42Z'
+  annotations:
+    openshift.io/host.generated: 'true'
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: route.openshift.io/v1
+      time: '2025-09-18T14:03:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:spec':
+          'f:port':
+            .: {}
+            'f:targetPort': {}
+          'f:to':
+            'f:kind': {}
+            'f:name': {}
+            'f:weight': {}
+          'f:wildcardPolicy': {}
+    - manager: openshift-router
+      operation: Update
+      apiVersion: route.openshift.io/v1
+      time: '2025-09-18T14:03:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:status':
+          'f:ingress': {}
+      subresource: status
+spec:
+  host: alm-ui-alm-itay.apps.ai-dev02.kni.syseng.devcluster.openshift.com
+  to:
+    kind: Service
+    name: alm-ui
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+status:
+  ingress:
+    - host: alm-ui-alm-itay.apps.ai-dev02.kni.syseng.devcluster.openshift.com
+      routerName: default
+      conditions:
+        - type: Admitted
+          status: 'True'
+          lastTransitionTime: '2025-09-18T14:03:42Z'
+      wildcardPolicy: None
+      routerCanonicalHostname: router-default.apps.ai-dev02.kni.syseng.devcluster.openshift.com
