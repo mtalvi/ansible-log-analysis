@@ -198,11 +198,11 @@ def train_embed_and_cluster_logs(
     cluster_labels = _handle_outlaier_cluster(cluster_labels)
 
     if save_cluster_model:
-        if os.getenv("IS_LOCAL_DEPLOY"):
-            joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
-        else:
+        if os.getenv("MINIO_BUCKET_NAME"):
             upload_model_to_minio(
                 cluster_model, os.getenv("MINIO_BUCKET_NAME"), "clustering_model.joblib"
             )
+        else:
+            joblib.dump(cluster_model, os.getenv("TMP_CLUSTER_MODEL_PATH"))
 
     return cluster_labels.tolist()
