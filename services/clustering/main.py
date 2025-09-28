@@ -2,10 +2,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import os
+from model_loader import load_from_minio
 
 app = FastAPI()
 # TODO change it for cluster deployment to be model registry.
-model = joblib.load("clustering_model.joblib")
+if os.getenv("IS_LOCAL_DEPLOY"):
+    model = joblib.load("clustering_model.joblib")
+else:
+    model = load_from_minio(os.getenv("MINIO_BUCKET_NAME"), "clustering_model.joblib")
 
 
 class InputData(BaseModel):

@@ -30,7 +30,6 @@ RUN  mkdir -p /hf_cache && \
 COPY src/ ./src/
 COPY data/ ./data/
 COPY init_pipeline.py .
-COPY clustering_model.joblib .
 
 # Expose port
 EXPOSE 8000

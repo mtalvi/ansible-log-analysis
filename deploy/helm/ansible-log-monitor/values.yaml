@@ -9,3 +9,17 @@ backendTag: latest
 uiTag: latest
 annotationInterfaceTag: latest
 clusteringTag: latest
+
+minio:
+  secret:
+    user: minio_alm_user
+    password: minio_alm_password
+    host: minio
+    port: "9000"
+
+    # Upload sample files to the minio bucket
+  sampleFileUpload:
+    enabled: false
+    # bucket: failed_logs
+    # urls:
+    # - https://raw.githubusercontent.com/***

@@ -102,10 +102,3 @@ make install \
   OPENAI_API_TOKEN=abc123 \
   OPENAI_MODEL=custom-model \
   OPENAI_TEMPERATURE=0.5
-
-# With custom namespace
-make install NAMESPACE=my-ansible-logs \
-  OPENAI_API_TOKEN=abc123 \
-  OPENAI_MODEL=custom-model \
-  OPENAI_TEMPERATURE=0.5
-```

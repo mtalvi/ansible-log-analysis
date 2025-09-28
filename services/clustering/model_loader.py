@@ -9,6 +9,20 @@ def load_from_local_file(model_path: str) -> str:
     return joblib.load(model_path)
 
 
+def load_from_minio(bucket_name: str, file_name: str) -> str:
+    import joblib
+    from io import BytesIO
+    from minio import Minio
+
+    minio_client = Minio(
+        endpoint=os.getenv("MINIO_ENDPOINT") + ":" + os.getenv("MINIO_PORT"),
+        access_key=os.getenv("MINIO_ACCESS_KEY"),
+        secret_key=os.getenv("MINIO_SECRET_KEY"),
+    )
+    buffer = minio_client.fget_object(bucket_name, file_name)
+    return joblib.load(BytesIO(buffer.data))
+
+
 def load_from_model_registry(model_name: str) -> str:
     from model_registry import ModelRegistry  # , utils
 
