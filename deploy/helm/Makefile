@@ -5,7 +5,6 @@ MAKEFLAGS += --no-print-directory
 
 # Default values
 NAMESPACE ?= $(shell oc project -q 2>/dev/null || echo "default")
-# OPENAI_API_TOKEN ?= $(shell bash -c 'read -r -p "Enter MaaS API Token: " TOKEN; echo $$TOKEN')
 OPENAI_API_ENDPOINT ?= https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
 OPENAI_MODEL ?= llama-4-scout-17b-16e-w4a16
 OPENAI_TEMPERATURE ?= 0.7
@@ -26,11 +25,9 @@ endef
 # endef
 
 
-# env_args = \
-	--set backend.env.OPENAI_API_TOKEN=$(OPENAI_API_TOKEN) \
-	--set backend.env.OPENAI_API_ENDPOINT=$(OPENAI_API_ENDPOINT) \
-	--set backend.env.OPENAI_MODEL=$(OPENAI_MODEL) \
-	--set backend.env.OPENAI_TEMPERATURE=$(OPENAI_TEMPERATURE) \
+env_args = \
+	-f ansible-log-monitor/global-values.yaml \
+	-f ansible-log-monitor/values.yaml
 
 # Default target
 .PHONY: help
@@ -80,8 +77,7 @@ install: namespace
 	# $(call check_required_params)
 	@echo "Installing Ansible Log Monitor in namespace $(NAMESPACE)..."
 	@oc project $(NAMESPACE)
-	@helm install alm ./ansible-log-monitor -n $(NAMESPACE)
-	# @helm install alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
+	@helm install alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
 	@echo "Ansible Log Monitor installed"
 
 # Uninstall the deployment and clean up (NAMESPACE optional, defaults to current project)
@@ -97,7 +93,7 @@ uninstall:
 upgrade:
 	$(call check_namespace)
 	@echo "Upgrading Ansible Log Monitor in namespace $(NAMESPACE)..."
-	@helm upgrade alm ./ansible-log-monitor -n $(NAMESPACE)
+	@helm upgrade alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
 	@echo "Ansible Log Monitor upgraded"
 
 # Port forwarding helpers (NAMESPACE optional, defaults to current project)

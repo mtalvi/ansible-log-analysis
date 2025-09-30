@@ -23,3 +23,13 @@ minio:
     # bucket: failed_logs
     # urls:
     # - https://raw.githubusercontent.com/***
+
+
+# pgvector:
+#   secret:
+#     user: postgres
+#     password: alm_password
+#     dbname: alm_db
+#     host: pgvector
+#     port: "5432"
+  
