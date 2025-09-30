@@ -10,14 +10,21 @@ def upload_model_to_minio(
         endpoint=os.getenv("MINIO_ENDPOINT") + ":" + os.getenv("MINIO_PORT"),
         access_key=os.getenv("MINIO_ACCESS_KEY"),
         secret_key=os.getenv("MINIO_SECRET_KEY"),
+        secure=False,  # Use HTTP instead of HTTPS for internal OpenShift services
     )
+
+    # Ensure bucket exists
+    if not minio_client.bucket_exists(bucket_name):
+        minio_client.make_bucket(bucket_name)
 
     # save to ram
     import io
     import joblib
 
-    buffer = io.BytesIO()
-    joblib.dump(model, buffer)
-    buffer.seek(0)
+    with io.BytesIO() as buffer:
+        joblib.dump(model, buffer)
+        buffer.seek(0)
 
-    minio_client.fput_object(bucket_name, file_name, buffer)
+        minio_client.put_object(
+            bucket_name, file_name, buffer, length=buffer.getbuffer().nbytes
+        )

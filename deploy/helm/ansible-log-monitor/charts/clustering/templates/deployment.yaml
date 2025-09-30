@@ -28,6 +28,21 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "clustering.serviceAccountName" . }}
+      initContainers:
+        - name: wait-for-backend-init
+          image: quay.io/openshift/origin-cli:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for alm-backend-init job to complete..."
+              oc wait --for=condition=complete --timeout=600s job/alm-backend-init
+              if [ $? -eq 0 ]; then
+                echo "alm-backend-init job completed successfully!"
+              else
+                echo "alm-backend-init job failed or timed out!"
+                exit 1
+              fi
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

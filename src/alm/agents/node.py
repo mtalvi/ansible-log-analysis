@@ -13,6 +13,7 @@ from src.alm.agents.output_scheme import (
 )
 import numpy as np
 from src.alm.utils.minio import upload_model_to_minio
+import requests
 
 # Load the user message (prompt) from the markdown file
 with open("src/alm/agents/prompts/summarize_error_log.md", "r") as f:
@@ -148,9 +149,17 @@ def _cluster_logs(embeddings: np.ndarray):
 
 def infer_cluster_log(log: str):
     embeddings = _embed_logs([log])
-    cluster_model = joblib.load(os.getenv("TMP_CLUSTER_MODEL_PATH"))
-    cluster_label = cluster_model.predict(embeddings)
-    return str(cluster_label.tolist()[0])
+    if os.getenv("CLUSTERING_HOST"):
+        response = requests.post(
+            f"{os.getenv('CLUSTERING_HOST')}:{os.getenv('CLUSTERING_PORT')}/cluster",
+            json={"embeddings": embeddings.tolist()},
+        )
+        label_as_int = response.json()["labels"][0]
+    else:
+        cluster_model = joblib.load(os.getenv("TMP_CLUSTER_MODEL_PATH"))
+        cluster_label = cluster_model.predict(embeddings)
+        label_as_int = cluster_label.tolist()[0]
+    return str(label_as_int)
 
 
 def _handle_outlaier_cluster(cluster_labels: np.ndarray):

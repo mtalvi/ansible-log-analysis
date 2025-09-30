@@ -1,29 +1,45 @@
 import os
 import subprocess
 import logging
+from sklearn.base import BaseEstimator
 
 
-def load_from_local_file(model_path: str) -> str:
+def load_from_local_file(model_path: str) -> BaseEstimator:
     import joblib
 
     return joblib.load(model_path)
 
 
-def load_from_minio(bucket_name: str, file_name: str) -> str:
+def load_from_minio(bucket_name: str, file_name: str) -> BaseEstimator:
     import joblib
-    from io import BytesIO
+    import io
     from minio import Minio
 
+    # Validate environment variables
+    endpoint = os.getenv("MINIO_ENDPOINT")
+    port = os.getenv("MINIO_PORT")
+    access_key = os.getenv("MINIO_ACCESS_KEY")
+    secret_key = os.getenv("MINIO_SECRET_KEY")
+
+    if not all([endpoint, port, access_key, secret_key]):
+        raise ValueError("Missing required MinIO environment variables")
+
     minio_client = Minio(
-        endpoint=os.getenv("MINIO_ENDPOINT") + ":" + os.getenv("MINIO_PORT"),
-        access_key=os.getenv("MINIO_ACCESS_KEY"),
-        secret_key=os.getenv("MINIO_SECRET_KEY"),
+        endpoint=f"{endpoint}:{port}",
+        access_key=access_key,
+        secret_key=secret_key,
+        secure=False,  # Set to True if using HTTPS
     )
-    buffer = minio_client.fget_object(bucket_name, file_name)
-    return joblib.load(BytesIO(buffer.data))
+
+    # Load model from MinIO into memory
+    response = minio_client.get_object(bucket_name, file_name)
+    with io.BytesIO() as buffer:
+        buffer.write(response.data)
+        buffer.seek(0)
+        return joblib.load(buffer)
 
 
-def load_from_model_registry(model_name: str) -> str:
+def load_from_model_registry(model_name: str) -> BaseEstimator:
     from model_registry import ModelRegistry  # , utils
 
     author_value, user_token_value, host_value = _fetch_model_registry_credentials()

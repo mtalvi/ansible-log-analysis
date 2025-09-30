@@ -28,7 +28,7 @@ RUN  mkdir -p /hf_cache && \
 
 # Copy source code
 COPY src/ ./src/
-COPY data/ ./data/
+COPY data/logs/failed/ ./data/logs/failed/
 COPY init_pipeline.py .
 
 # Expose port
