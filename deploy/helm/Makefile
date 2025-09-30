@@ -10,7 +10,6 @@ OPENAI_API_ENDPOINT ?= https://llama-4-scout-17b-16e-w4a16-maas-apicast-producti
 OPENAI_MODEL ?= llama-4-scout-17b-16e-w4a16
 OPENAI_TEMPERATURE ?= 0.7
 ANSIBLE_LOG_MONITOR_CHART := ansible-log-monitor
-MINIMUM_OC_VERSION = "4.10.0"
 
 # Parameter validation functions
 define check_namespace
@@ -92,6 +91,14 @@ uninstall:
 	@echo "Uninstalling Ansible Log Monitor from namespace $(NAMESPACE)..."
 	@helm uninstall alm -n $(NAMESPACE)
 	@echo "Ansible Log Monitor uninstalled"
+
+# Upgrade 
+.PHONY: upgrade
+upgrade:
+	$(call check_namespace)
+	@echo "Upgrading Ansible Log Monitor in namespace $(NAMESPACE)..."
+	@helm upgrade alm ./ansible-log-monitor -n $(NAMESPACE)
+	@echo "Ansible Log Monitor upgraded"
 
 # Port forwarding helpers (NAMESPACE optional, defaults to current project)
 .PHONY: port-forward-ui
