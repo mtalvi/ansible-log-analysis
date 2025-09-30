@@ -8,16 +8,27 @@ import json
 import os
 from datetime import datetime
 from typing import Tuple
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 
 class DataAnnotationApp:
-    def __init__(self, data_file: str, feedback_dir: str = "data"):
-        self.data_file = data_file
+    def __init__(self, feedback_dir: str = "data/feedback"):
         self.feedback_dir = feedback_dir
-        self.feedback_file = os.path.join(feedback_dir, "annotation_feedback.json")
+        self.feedback_file = os.path.join(feedback_dir, "annotation.json")
         self.current_index = 0
         self.data = []
         self.feedback_data = []
+
+        # Get table name from environment variable
+        self.table_name = os.getenv("ALERTS_TABLE_NAME", "grafana_alert")
+
+        # Initialize sync engine
+        self.engine = create_engine(
+            os.getenv("DATABASE_URL")
+            .replace("+asyncpg", "")
+            .replace("postgresql", "postgresql+psycopg2")
+        )
 
         # Ensure data directory exists
         os.makedirs(self.feedback_dir, exist_ok=True)
@@ -26,13 +37,49 @@ class DataAnnotationApp:
         self.load_feedback()
 
     def load_data(self):
-        """Load the pipeline output data."""
+        """Load the pipeline output data from PostgreSQL."""
         try:
-            with open(self.data_file, "r") as f:
-                self.data = json.load(f)
-            # print(f"Loaded {len(self.data)} data entries")
+            with Session(self.engine) as session:
+                # Use raw SQL to query the table dynamically
+                query = text(f"""
+                    SELECT 
+                        id,
+                        "logMessage",
+                        "logSummary", 
+                        "stepByStepSolution",
+                        labels
+                    FROM {self.table_name}
+                    ORDER BY id
+                """)
+
+                result = session.execute(query)
+                rows = result.fetchall()
+
+                # Convert to the expected data format
+                self.data = []
+                for row in rows:
+                    # Parse labels JSON if it exists
+                    labels = row.labels if hasattr(row, "labels") and row.labels else {}
+
+                    data_entry = {
+                        "filename": labels.get("filename", "unknown")
+                        if isinstance(labels, dict)
+                        else "unknown",
+                        "line_number": labels.get("line_number", "")
+                        if isinstance(labels, dict)
+                        else "",
+                        "line_content": row.logMessage or "No log content",
+                        "summary": row.logSummary or "No summary available",
+                        "step_by_step_solution": row.stepByStepSolution
+                        or "No solution available",
+                    }
+                    self.data.append(data_entry)
+
+                print(
+                    f"Loaded {len(self.data)} data entries from table '{self.table_name}'"
+                )
         except Exception as e:
-            print(f"Error loading data: {e}")
+            print(f"Error loading data from database table '{self.table_name}': {e}")
             self.data = []
 
     def load_feedback(self):
@@ -208,8 +255,8 @@ class DataAnnotationApp:
 def create_app():
     """Create the Gradio interface."""
     # Initialize the app
-    data_file = "/home/ikatav/Projects/ansible-logs-folders/ansible-logs/data/logs/failed_lines_extracted_with_summaries.json"
-    app = DataAnnotationApp(data_file)
+    feedback_dir = "data/feedback"
+    app = DataAnnotationApp(feedback_dir)
 
     # Custom CSS for dark theme
     css = """
@@ -458,4 +505,9 @@ def create_app():
 
 demo = create_app()
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7861, share=False, debug=True)
+    demo.launch(
+        server_name=os.getenv("GRADIO_SERVER_NAME", "0.0.0.0"),
+        server_port=int(os.getenv("GRADIO_SERVER_PORT", 7861)),
+        share=False,
+        debug=True,
+    )

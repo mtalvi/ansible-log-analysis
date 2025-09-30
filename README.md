@@ -165,6 +165,9 @@ See the interface below:
 
 ### Minimum Hardware Requirements
 
+Storage / PC of size <TODO>
+
+
 #### Production Cluster Environment
 
 <TODO>
@@ -267,7 +270,7 @@ For production deployment on OpenShift clusters:
 - OpenShift CLI (`oc`) installed and configured
 - Helm 3.x installed
 - Access to an OpenShift cluster
-- MaaS API Token for AI services
+- MaaS API Token, and MaaS endpoint, or openai token and Openai endpoint
 
 #### Quick Deployment
 ```bash

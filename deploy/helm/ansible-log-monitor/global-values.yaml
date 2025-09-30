@@ -29,3 +29,9 @@ global:
       # Path rewriting for annotation interface
       rewriteTarget: "/$2"
       pathPattern: "/annotation(/|$)(.*)"
+
+  servicesNames:
+    backend: "alm-backend"
+    annotationInterface: "alm-annotation-interface"
+    clustering: "alm-clustering"
+    ui: "alm-ui"

@@ -54,7 +54,7 @@ def _include_route_modules(app: FastAPI) -> None:
 app = create_app()
 
 
-def run_db():
+def main():
     import uvicorn
 
     # Run with: python -m uvicorn alm.main_fastapi:app --reload
@@ -62,4 +62,4 @@ def run_db():
 
 
 if __name__ == "__main__":
-    run_db()
+    main()

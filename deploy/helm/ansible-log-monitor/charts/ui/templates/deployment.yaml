@@ -49,10 +49,7 @@ spec:
           {{- end }}
           env:
             - name: BACKEND_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "ui.fullname" . }}-config
-                  key: backend-url
+              value: "http://{{ .Values.global.servicesNames.backend }}:8000"
             - name: GRADIO_SERVER_NAME
               value: "0.0.0.0"
             - name: GRADIO_SERVER_PORT

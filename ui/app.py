@@ -96,9 +96,6 @@ async def fetch_unique_clusters_by_expert_class(
     try:
         async with httpx.AsyncClient() as client:
             print(
-                "http://localhost:8000/grafana-alert/unique-clusters/?expert_class=Kubernetes%20%2F%20OpenShift%20Cluster%20Admins"
-            )
-            print(
                 f"{BACKEND_URL}/grafana-alert/unique-clusters/?expert_class={expert_class}"
             )
             response = await client.get(
@@ -1346,8 +1343,10 @@ def main():
 
     # Launch the app
     demo.launch(
-        server_name="0.0.0.0",  # Allow external connections
-        server_port=7860,  # Default Gradio port
+        server_name=os.getenv(
+            "GRADIO_SERVER_NAME", "0.0.0.0"
+        ),  # Allow external connections
+        server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860)),  # Default Gradio port
         share=False,  # Set to True for public sharing
         debug=True,  # Enable debug mode
     )

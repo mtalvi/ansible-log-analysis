@@ -120,16 +120,11 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes:
-  - name: config-volume
-    configMap:
-      name: "{{ include \"annotation-interface.fullname\" . }}-config"
+volumes: []
 
 # Additional volumeMounts on the output Deployment definition.
-volumeMounts:
-  - name: config-volume
-    mountPath: "/app/config"
-    readOnly: true
+volumeMounts: []
+
 
 nodeSelector: {}
 
@@ -145,7 +140,7 @@ persistence:
   # Set to "-" to use default storage class
   storageClass: ""
   # Size of the persistent volume
-  size: 10Gi
+  size: 1Gi
   # Access modes for the persistent volume
   accessModes:
     - ReadWriteOnce
@@ -156,18 +151,6 @@ persistence:
   # Name of an existing persistent volume claim to use
   # existingClaim: ""
 
-# Application specific configuration
-appConfig:
-  # Data file path for the annotation interface
-  dataFile: "/app/data/logs/failed_lines_extracted_with_summaries.json"
-  # Feedback directory where annotations will be stored
-  feedbackDir: "/app/data"
-  # Gradio server configuration
-  serverName: "0.0.0.0"
-  serverPort: 7861
-  share: false
-  debug: false
-
 # Environment variables for the application
 env:
   - name: GRADIO_SERVER_NAME
@@ -176,23 +159,10 @@ env:
     value: "7861"
   - name: PYTHONPATH
     value: "/app"
-
-
-# ConfigMap data
-configMap:
-  # Default configuration file
-  config.yaml: |
-    app:
-      name: "Ansible Log Annotation Interface"
-      version: "1.0.0"
-      debug: false
-    
-    server:
-      host: "0.0.0.0"
-      port: 7861
-      share: false
-    
-    data:
-      input_file: "/app/data/logs/failed_lines_extracted_with_summaries.json"
-      feedback_dir: "/app/data"
-      feedback_file: "/app/data/annotation_feedback.json"
+  - name: ALERTS_TABLE_NAME
+    value: "grafanaalert"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: pgvector
+        key: uri

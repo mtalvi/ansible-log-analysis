@@ -34,9 +34,5 @@
    kubectl get hpa --namespace {{ .Release.Namespace }} {{ include "annotation-interface.fullname" . }}
 {{- end }}
 
-Application Configuration:
-- Data File: {{ .Values.appConfig.dataFile }}
-- Feedback Directory: {{ .Values.appConfig.feedbackDir }}
-- Server Port: {{ .Values.appConfig.serverPort }}
 
 For more information about using the annotation interface, please refer to the documentation.
