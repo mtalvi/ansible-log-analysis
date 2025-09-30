@@ -125,7 +125,3 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-
-# ConfigMap data
-configMap:
-  backendUrl: "http://backend:8000"
