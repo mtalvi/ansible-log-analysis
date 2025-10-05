@@ -15,22 +15,22 @@ all: ## Show usage instructions
 	@echo ""
 	@echo "Usage:"
 	@echo "  make local/<target>   - Run local development targets"
-	@echo "  make helm/<target>    - Run helm deployment targets"
+	@echo "  make cluster/<target>    - Run helm deployment targets"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make local/dev        - Start local development environment"
 	@echo "  make local/help       - Show local development help"
-	@echo "  make helm/install     - Install via helm (requires NAMESPACE)"
-	@echo "  make helm/help        - Show helm deployment help"
+	@echo "  make cluster/install     - Install via helm (requires NAMESPACE)"
+	@echo "  make cluster/help        - Show helm deployment help"
 	@echo ""
 	@echo "For target-specific help:"
 	@echo "  make local/help"
-	@echo "  make helm/help"
+	@echo "  make cluster/help"
 
 help: all ## Show help (alias for all)
 
 local/%: ## Route local targets to deploy/local/Makefile
 	@$(MAKE) -C deploy/local $*
 
-helm/%: ## Route helm targets to deploy/helm/Makefile
+cluster/%: ## Route deploy targets to deploy/helm/Makefile
 	@$(MAKE) -C deploy/helm $*

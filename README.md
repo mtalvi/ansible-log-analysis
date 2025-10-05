@@ -183,16 +183,16 @@ Storage / PC of size <TODO>
 
 The Ansible Log Monitor can be deployed in multiple environments depending on your needs. Choose the deployment method that best fits your requirements:
 
-### Mock Data (Temporary for Development)
+### Quick Start - Local Development
+
+For development and testing, you can run all services locally using the provided Makefile:
+
+#### Mock Data (Temporary for Development)
 
 To use add data during development, add your log files to the `data/logs/failed` directory. 
 
 Each log should be saved as a separate `.txt` file (e.g., `<filename>.txt`).
 For example `data/logs/failed/example.txt`
-
-### Quick Start - Local Development
-
-For development and testing, you can run all services locally using the provided Makefile:
 
 #### Prerequisites
 - Docker and Docker Compose
@@ -269,34 +269,43 @@ For production deployment on OpenShift clusters:
 #### Quick Deployment
 ```bash
 # Install the application (uses current OpenShift project)
-make deploy/install OPENAI_API_TOKEN=your-token-here
+make cluster/install
 
 # With custom namespace
-make deploy/install NAMESPACE=ansible-logs-monitor OPENAI_API_TOKEN=your-token-here
+make cluster/install NAMESPACE=ansible-logs-monitor
 ```
 
 #### Access Services
 ```bash
 # Forward UI to localhost:7860
-make deploy/port-forward-ui
+make cluster/port-forward-ui
 
 # Forward Backend API to localhost:8000
-make deploy/port-forward-backend
+make cluster/port-forward-backend
 
 # Forward Annotation Interface to localhost:7861
-make deploy/port-forward-annotation
+make cluster/port-forward-annotation
 
 # Forward Grafana to localhost:3000
-make deploy/port-forward-grafana
+make cluster/port-forward-grafana
 ```
 
 #### Uninstall
 ```bash
 # Remove from current project
-make deploy/uninstall
+make cluster/uninstall
 
 # Remove from specific namespace
-make deploy/uninstall NAMESPACE=ansible-logs-monitor
+make cluster/uninstall NAMESPACE=ansible-logs-monitor
+```
+
+#### Addional commands
+```bash
+# upgrade
+make cluster/upgrade
+
+# restart
+make cluster/restart
 ```
 
 For detailed configuration options and troubleshooting, see [deploy/helm/README.md](deploy/helm/README.md).
