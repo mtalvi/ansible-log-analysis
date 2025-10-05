@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import os
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN, MeanShift, AgglomerativeClustering
@@ -60,7 +60,7 @@ async def classify_log(log_summary, llm: ChatOpenAI):
     return log_category.category
 
 
-async def router_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
+async def router_step_by_step_solution(log_summary: str, llm: ChatOpenAI):
     llm_router_step_by_step_solution = llm.with_structured_output(
         RouterStepByStepSolutionSchema
     )
@@ -74,17 +74,29 @@ async def router_step_by_step_solution(log_summary: str, log: str, llm: ChatOpen
                 "role": "user",
                 "content": router_step_by_step_solution_user_message.replace(
                     "{log_summary}", log_summary
-                ).replace("{ansible_error_log}", log),
+                ),
             },
         ]
     )
     return router_step_by_step_solution.suggestion
 
 
-async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpenAI):
+async def suggest_step_by_step_solution(
+    log_summary: str,
+    log: str,
+    llm: ChatOpenAI,
+    context_for_step_by_step_solution: Optional[str] = None,
+):
     llm_suggest_step_by_step_solution = llm.with_structured_output(
         SuggestStepByStepSolutionSchema
     )
+    user_msg = log_suggest_step_by_step_solution_user_message
+    if context_for_step_by_step_solution:
+        user_msg = user_msg.replace(
+            "**Root Cause Analysis:**",
+            f"**Additional Context:**\n```\n{context_for_step_by_step_solution}\n```\n\n**Root Cause Analysis:**",
+        )
+
     log_suggest_step_by_step_solution = await llm_suggest_step_by_step_solution.ainvoke(
         [
             {
@@ -93,7 +105,7 @@ async def suggest_step_by_step_solution(log_summary: str, log: str, llm: ChatOpe
             },
             {
                 "role": "user",
-                "content": log_suggest_step_by_step_solution_user_message.replace(
+                "content": user_msg.replace(
                     "{log_summary}",
                     log_summary,  # currently disabled
                 ).replace("{ansible_error_log}", log),

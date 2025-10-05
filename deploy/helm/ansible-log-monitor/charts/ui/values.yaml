@@ -60,7 +60,7 @@ ingress:
     nginx.ingress.kubernetes.io/upgrade: "$http_upgrade"
     nginx.ingress.kubernetes.io/connection: "upgrade"
   hosts:
-    - host: ansible-logs.local
+    - host: ""  # Set to your ingress hostname, e.g., ui.example.com
       paths:
         - path: /
           pathType: Prefix
@@ -68,6 +68,18 @@ ingress:
   #  - secretName: ansible-logs-tls
   #    hosts:
   #      - ansible-logs.local
+
+# This block is for setting up OpenShift routes for more information can be found here: https://docs.openshift.com/container-platform/4.11/networking/routes/route-configuration.html
+route:
+  enabled: true
+  # Set the hostname for your OpenShift cluster
+  # Example: ui-alm-<namespace>.apps.<cluster-domain>
+  host: ""
+  path: ""
+  annotations: {}
+  tls: {}
+  #  termination: edge
+  #  insecureEdgeTerminationPolicy: Redirect
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious

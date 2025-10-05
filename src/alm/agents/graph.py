@@ -10,6 +10,7 @@ from src.alm.agents.node import (
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 
+# from src.alm.agents.get_more_context_agent.graph import get_graph as get_more_context_agent_graph
 from typing import Literal
 
 llm = get_llm()
@@ -54,27 +55,32 @@ async def suggest_step_by_step_solution_node(
 async def router_step_by_step_solution_node(
     state: GrafanaAlert,
 ) -> Command[
-    Literal["suggest_step_by_step_solution_node", "step_by_step_solution_agent_node"]
+    Literal[
+        "suggest_step_by_step_solution_node",
+        "suggest_step_by_step_solution_with_context_node",
+    ]
 ]:
     log_summary = state.logSummary
-    log = state.logMessage
-    step_by_step_solution = await router_step_by_step_solution(log_summary, log, llm)
+    classification = await router_step_by_step_solution(log_summary, llm)
     return Command(
         goto="suggest_step_by_step_solution_node"
-        if step_by_step_solution == "straightforward"
-        else "step_by_step_solution_agent_node",
-        update={"shouldBeStraightforward": step_by_step_solution == "straightforward"},
+        if classification == "No More Context Needed"
+        else "suggest_step_by_step_solution_with_context_node",
+        update={"needMoreContext": classification == "Need More Context"},
     )
 
 
-async def step_by_step_solution_agent_node(
+async def suggest_step_by_step_solution_with_context_node(
     state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
     log = state.logMessage
+    # context_for_step_by_step_solution = get_more_context_agent_graph(inputs)
     step_by_step_solution = await suggest_step_by_step_solution(
-        log_summary, log, llm
-    )  # TODO replace it with agent
+        log_summary,
+        log,
+        llm,  # , context_for_step_by_step_solution TODO
+    )
     return Command(goto=END, update={"stepByStepSolution": step_by_step_solution})
 
 
@@ -87,7 +93,7 @@ def build_graph():
     builder.add_node(classify_log_node)
     builder.add_node(suggest_step_by_step_solution_node)
     builder.add_node(router_step_by_step_solution_node)
-    builder.add_node(step_by_step_solution_agent_node)
+    builder.add_node(suggest_step_by_step_solution_with_context_node)
 
     return builder.compile()
 

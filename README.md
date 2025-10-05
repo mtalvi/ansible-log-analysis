@@ -258,12 +258,6 @@ make local/help
 
 ### Deploy on the Cluster
 
-!!!
-NOTE currently you must to create a secret in the namesapce named `model-secret` with the values:
-OPENAI_API_TOKEN = <your MaaS token>
-OPENAI_API_ENDPOINT = <your MaaS endpoint>
-!!!
-
 For production deployment on OpenShift clusters:
 
 #### Prerequisites

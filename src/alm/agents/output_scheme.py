@@ -28,6 +28,6 @@ class SuggestStepByStepSolutionSchema(BaseModel):
 
 
 class RouterStepByStepSolutionSchema(BaseModel):
-    suggestion: Literal["straightforward", "complex"] = Field(
-        description="The suggestion for the step by step solution: 'straightforward' if the solution is straightforward, 'complex' if the solution is complex"
+    suggestion: Literal["No More Context Needed", "Need More Context"] = Field(
+        description="The suggestion for the step by step solution: 'No More Context Needed' if the solution is straightforward, 'Need More Context' if the solution is complex"
     )
