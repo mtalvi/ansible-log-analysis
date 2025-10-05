@@ -5,6 +5,7 @@ MAKEFLAGS += --no-print-directory
 
 # Default values
 NAMESPACE ?= $(shell oc project -q 2>/dev/null || echo "default")
+# OPENAI_API_TOKEN = 
 OPENAI_API_ENDPOINT ?= https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
 OPENAI_MODEL ?= llama-4-scout-17b-16e-w4a16
 OPENAI_TEMPERATURE ?= 0.7
@@ -15,15 +16,64 @@ define check_namespace
 	@echo "Using namespace: $(NAMESPACE)"
 endef
 
-# define check_required_params
-# 	@if [ -z "$(OPENAI_API_TOKEN)" ]; then \
-# 		echo "Error: OPENAI_API_TOKEN is required for installation"; \
-# 		echo "Usage: make $@ OPENAI_API_TOKEN=your-token"; \
-# 		exit 1; \
-# 	fi
-# 	@echo "Using namespace: $(NAMESPACE)"
-# endef
-
+# Function to prompt for OpenAI credentials
+define prompt_openai_credentials
+	@echo "============================================"
+	@echo "   OpenAI API Configuration Required"
+	@echo "============================================"
+	@echo ""
+	@if [ -z "$$OPENAI_API_TOKEN" ]; then \
+		echo -n "Enter MaaS OPENAI_API_TOKEN: "; \
+		read -s OPENAI_API_TOKEN_INPUT; \
+		echo ""; \
+		export OPENAI_API_TOKEN=$$OPENAI_API_TOKEN_INPUT; \
+	else \
+		echo "Using provided OPENAI_API_TOKEN"; \
+	fi; \
+	if [ -z "$$OPENAI_API_ENDPOINT" ]; then \
+		echo -n "Enter MaaS OPENAI_API_ENDPOINT (or press Enter for default): "; \
+		read OPENAI_API_ENDPOINT_INPUT; \
+		if [ -z "$$OPENAI_API_ENDPOINT_INPUT" ]; then \
+			export OPENAI_API_ENDPOINT="$(OPENAI_API_ENDPOINT)"; \
+		else \
+			export OPENAI_API_ENDPOINT=$$OPENAI_API_ENDPOINT_INPUT; \
+		fi; \
+	else \
+		echo "Using provided OPENAI_API_ENDPOINT: $$OPENAI_API_ENDPOINT"; \
+	fi; \
+	if [ -z "$$OPENAI_MODEL" ]; then \
+		echo -n "Enter MaaS OPENAI_MODEL (or press Enter for default): "; \
+		read OPENAI_MODEL_INPUT; \
+		if [ -z "$$OPENAI_MODEL_INPUT" ]; then \
+			export OPENAI_MODEL="$(OPENAI_MODEL)"; \
+		else \
+			export OPENAI_MODEL=$$OPENAI_MODEL_INPUT; \
+		fi; \
+	else \
+		echo "Using provided OPENAI_MODEL: $$OPENAI_MODEL"; \
+	fi; \
+	if [ -z "$$OPENAI_TEMPERATURE" ]; then \
+		echo -n "Enter MaaS OPENAI_TEMPERATURE (or press Enter for default): "; \
+		read OPENAI_TEMPERATURE_INPUT; \
+		if [ -z "$$OPENAI_TEMPERATURE_INPUT" ]; then \
+			export OPENAI_TEMPERATURE="$(OPENAI_TEMPERATURE)"; \
+		else \
+			export OPENAI_TEMPERATURE=$$OPENAI_TEMPERATURE_INPUT; \
+		fi; \
+	else \
+		echo "Using provided OPENAI_TEMPERATURE: $$OPENAI_TEMPERATURE"; \
+	fi; \
+	echo ""; \
+	echo "Creating Kubernetes secret 'model-secret'..."; \
+	oc create secret generic model-secret \
+		--from-literal=OPENAI_API_TOKEN=$$OPENAI_API_TOKEN \
+		--from-literal=OPENAI_API_ENDPOINT=$$OPENAI_API_ENDPOINT \
+		--from-literal=OPENAI_MODEL=$$OPENAI_MODEL \
+		--from-literal=OPENAI_TEMPERATURE=$$OPENAI_TEMPERATURE \
+		-n $(NAMESPACE) --dry-run=client -o yaml | oc apply -f -; \
+	echo "Secret 'model-secret' created successfully"; \
+	echo ""
+endef
 
 env_args = \
 	-f ansible-log-monitor/global-values.yaml \
@@ -36,7 +86,8 @@ help:
 	@echo "=========================================="
 	@echo ""
 	@echo "Available Commands:"
-	@echo "  install                    Deploy the application (requires OPENAI_API_TOKEN)"
+	@echo "  install                    Deploy the application (prompts for OpenAI credentials)"
+	@echo "  upgrade                    Upgrade the application (prompts for OpenAI credentials)"
 	@echo "  uninstall                  Remove the application"
 	@echo "  namespace                  Create/switch to namespace"
 	@echo "  port-forward-ui           Forward UI service to localhost:7860"
@@ -45,20 +96,22 @@ help:
 	@echo "  port-forward-grafana      Forward Grafana to localhost:3000"
 	@echo ""
 	@echo "Usage Examples:"
-	@echo "  make install OPENAI_API_TOKEN=your-token-here"
-	@echo "  make install NAMESPACE=ansible-logs OPENAI_API_TOKEN=your-token-here"
+	@echo "  make install                              # Will prompt for credentials"
+	@echo "  make install NAMESPACE=ansible-logs      # Will prompt for credentials"
+	@echo "  make upgrade                              # Will prompt for credentials"
 	@echo "  make uninstall"
 	@echo "  make port-forward-ui"
 	@echo ""
 	@echo "Configuration Variables:"
 	@echo "  NAMESPACE                  OpenShift namespace (default: current project)"
-	@echo "  OPENAI_API_TOKEN          MaaS API Token (required for install)"
-	@echo "  OPENAI_API_ENDPOINT       AI API endpoint (default: llama-4-scout endpoint)"
-	@echo "  OPENAI_MODEL              AI model to use (default: llama-4-scout-17b-16e-w4a16)"
-	@echo "  OPENAI_TEMPERATURE        AI temperature setting (default: 0.7)"
+	@echo "  OPENAI_API_TOKEN          MaaS API Token (will prompt if not provided)"
+	@echo "  OPENAI_API_ENDPOINT       AI API endpoint (will prompt if not provided, defaults to llama-4-scout)"
+	@echo "  OPENAI_MODEL              AI model to use (will prompt if not provided, default: llama-4-scout-17b-16e-w4a16)"
+	@echo "  OPENAI_TEMPERATURE        AI temperature setting (will prompt if not provided, default: 0.7)"
 	@echo ""
 	@echo "Note: All commands use the current OpenShift project by default."
 	@echo "      Use NAMESPACE=your-namespace to override."
+	@echo "      The install/upgrade commands will create a 'model-secret' with OpenAI configuration."
 
 
 
@@ -74,7 +127,7 @@ namespace:
 # Install the application (NAMESPACE optional, defaults to current project)
 .PHONY: install
 install: namespace
-	# $(call check_required_params)
+	$(call prompt_openai_credentials)
 	@echo "Installing Ansible Log Monitor in namespace $(NAMESPACE)..."
 	@oc project $(NAMESPACE)
 	@helm install alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
@@ -86,12 +139,15 @@ uninstall:
 	$(call check_namespace)
 	@echo "Uninstalling Ansible Log Monitor from namespace $(NAMESPACE)..."
 	@helm uninstall alm -n $(NAMESPACE)
+	@echo "Removing model-secret if it exists..."
+	@oc delete secret model-secret -n $(NAMESPACE) --ignore-not-found
 	@echo "Ansible Log Monitor uninstalled"
 
 # Upgrade 
 .PHONY: upgrade
 upgrade:
 	$(call check_namespace)
+	$(call prompt_openai_credentials)
 	@echo "Upgrading Ansible Log Monitor in namespace $(NAMESPACE)..."
 	@helm upgrade alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
 	@echo "Ansible Log Monitor upgraded"
