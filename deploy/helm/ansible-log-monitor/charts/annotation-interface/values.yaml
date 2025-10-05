@@ -72,14 +72,26 @@ ingress:
     nginx.ingress.kubernetes.io/connection: "upgrade"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
   hosts:
-    - host: ansible-logs.local
+    - host: ""  # Set to your ingress hostname, e.g., annotation.example.com
       paths:
-        - path: /annotation(/|$)(.*)
-          pathType: ImplementationSpecific
+        - path: /
+          pathType: Prefix
   tls: []
   #  - secretName: ansible-logs-tls
   #    hosts:
   #      - ansible-logs.local
+
+# This block is for setting up OpenShift routes for more information can be found here: https://docs.openshift.com/container-platform/4.11/networking/routes/route-configuration.html
+route:
+  enabled: true
+  # Set the hostname for your OpenShift cluster
+  # Example: annotation-interface-alm-<namespace>.apps.<cluster-domain>
+  host: ""
+  path: ""
+  annotations: {}
+  tls: {}
+  #  termination: edge
+  #  insecureEdgeTerminationPolicy: Redirect
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -113,7 +125,7 @@ readinessProbe:
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
-  enabled: true
+  enabled: false
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
