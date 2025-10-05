@@ -21,7 +21,7 @@ class DataAnnotationApp:
         self.feedback_data = []
 
         # Get table name from environment variable
-        self.table_name = os.getenv("ALERTS_TABLE_NAME", "grafana_alert")
+        self.table_name = os.getenv("ALERTS_TABLE_NAME", "grafanaalert")
 
         # Initialize sync engine
         self.engine = create_engine(
