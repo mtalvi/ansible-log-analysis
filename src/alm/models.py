@@ -27,11 +27,14 @@ class GrafanaAlert(SQLModel, table=True):
     logCluster: Optional[str] = Field(
         default=None, description="Cluster of the log message"
     )
-    shouldBeStraightforward: Optional[bool] = Field(
-        default=None, description="Should be straightforward"
+    needMoreContext: Optional[bool] = Field(
+        default=None, description="Is additional context needed to solve the problem"
     )
     stepByStepSolution: Optional[str] = Field(
         default=None, description="Step by step solution to the problem"
+    )
+    contextForStepByStepSolution: Optional[str] = Field(
+        default=None, description="Context for the step by step solution"
     )
     labels: Dict[str, str] = Field(
         default={},
