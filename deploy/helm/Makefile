@@ -31,7 +31,7 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_API_TOKEN"; \
 	fi; \
 	if [ -z "$$OPENAI_API_ENDPOINT" ]; then \
-		echo -n "Enter MaaS OPENAI_API_ENDPOINT (or press Enter for default): "; \
+		echo -n "Enter MaaS OPENAI_API_ENDPOINT, #### dont forget /v1 (or other version) at the end #### (or press Enter for default): "; \
 		read OPENAI_API_ENDPOINT_INPUT; \
 		if [ -z "$$OPENAI_API_ENDPOINT_INPUT" ]; then \
 			export OPENAI_API_ENDPOINT="$(OPENAI_API_ENDPOINT)"; \
