@@ -1,10 +1,10 @@
 test_pod:
-  enabled: true
+  enabled: false # TODO: change me to `true` deploy loki stack
   image: bats/bats:1.8.2
   pullPolicy: IfNotPresent
 
 loki:
-  enabled: true
+  enabled: false # TODO: change me to `true` deploy loki stack
   isDefault: true
   url: http://{{(include "loki.serviceName" .)}}:{{ .Values.loki.service.port }}
   readinessProbe:
@@ -23,7 +23,7 @@ loki:
 
 
 promtail:
-  enabled: true
+  enabled: false # TODO: change me to `true` deploy loki stack
   config:
     logLevel: info
     serverPort: 3101
