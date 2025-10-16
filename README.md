@@ -264,7 +264,7 @@ For production deployment on OpenShift clusters:
 - OpenShift CLI (`oc`) installed and configured
 - Helm 3.x installed
 - Access to an OpenShift cluster
-- MaaS API Token, and MaaS endpoint, or openai token and Openai endpoint
+- MaaS API Token, and endpoint, or OpenAI token, and endpoint
 
 #### Quick Deployment
 ```bash
@@ -274,6 +274,8 @@ make cluster/install
 # With custom namespace
 make cluster/install NAMESPACE=ansible-logs-monitor
 ```
+You will be prompted to add your API token, endpoint, model, and temperature.
+- API token is required; the others have default values that you can leave empty.
 
 #### Access Services
 ```bash
