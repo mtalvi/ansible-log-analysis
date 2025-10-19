@@ -4,6 +4,7 @@
 include ../../.env
 export $(shell sed 's/=.*//' ../../.env | xargs)
 
+install: start ## Install all services (alias for start)
 
 deploy: start ## Deploy all services (alias for start)
 
@@ -20,6 +21,7 @@ start: stop ## 🚀 Start all services locally
 	@echo "🔌 Cleaning up any existing processes..."
 	@$(MAKE) -s postgres
 	@echo "   Waiting for PostgreSQL to be ready..."
+	@$(MAKE) -s phoenix
 	@$(MAKE) -s backend
 	@$(MAKE) -s ui
 	@$(MAKE) -s annotation
@@ -34,6 +36,10 @@ start: stop ## 🚀 Start all services locally
 postgres: ## 📊 Start PostgreSQL database
 	@echo "   Starting PostgreSQL database..."
 	@docker-compose -f compose.yaml up -d postgres
+
+phoenix: ## 📊 Start Phoenix	
+	@echo "   Starting Phoenix..."
+	@docker-compose -f compose.yaml up -d phoenix
 
 backend: ## ⚙️ Start Backend (FastAPI)
 	@echo "   Starting Backend API..."
@@ -51,12 +57,17 @@ annotation: ## 🏷️ Start Annotation UI (Gradio)
 stop: ## 🛑 Stop all services
 	@echo "🛑 Stopping all services..."
 	@$(MAKE) -s stop-postgres
+	@$(MAKE) -s stop-phoenix
 	@$(MAKE) -s kill-ports
 	@echo "👋 All services stopped"
 
 stop-postgres: ## 🛑 Stop PostgreSQL database
 	@docker-compose -f compose.yaml down postgres
 	@echo "   ✓ PostgreSQL stopped"
+
+stop-phoenix: ## 🛑 Stop Phoenix
+	@docker-compose -f compose.yaml down phoenix
+	@echo "   ✓ Phoenix stopped"
 
 kill-ports: ## 🔌 Kill processes using required ports
 	@fuser -k 7860/tcp || true
@@ -65,6 +76,10 @@ kill-ports: ## 🔌 Kill processes using required ports
 	@echo "   ✓ Annotation 7861 killed"
 	@fuser -k 8000/tcp || true
 	@echo "   ✓ Backend 8000 killed"
+	@fuser -k 6006/tcp || true
+	@echo "   ✓ Phoenix 6006 killed"
+	@fuser -k 4317/tcp || true
+	@echo "   ✓ Phoenix 4317 killed"
 
 status: ## 📊 Show status of all services
 	@echo "📊 Service Status:"
@@ -83,6 +98,11 @@ status: ## 📊 Show status of all services
 		echo "   🏷️  Annotation UI: Running - http://localhost:7861"; \
 	else \
 		echo "   🏷️  Annotation UI: Stopped - http://localhost:7861"; \
+	fi
+	@if curl -s http://localhost:6006 >/dev/null 2>&1; then \
+		echo "   🐍  Phoenix: Running - http://localhost:6006"; \
+	else \
+		echo "   🐍  Phoenix: Stopped - http://localhost:6006"; \
 	fi
 
 run-whole-training-pipeline: ## 🔍 Run whole training pipeline
@@ -106,7 +126,11 @@ health: ## 🔍 Check health of running services
 	else \
 		echo "   🏷️  Annotation UI http://localhost:7861: Unhealthy"; \
 	fi
-
+	@if curl -s http://localhost:6006 >/dev/null 2>&1; then \
+		echo "   🐍  Phoenix: Running - http://localhost:6006"; \
+	else \
+		echo "   🐍  Phoenix: Stopped - http://localhost:6006"; \
+	fi
 restart: stop start ## 🔄 Restart all services
 
 clean: ## 🧹 Clean PID files and logs

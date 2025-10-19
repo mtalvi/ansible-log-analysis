@@ -50,6 +50,15 @@ services:
   #     - "3000:3000"
   #   networks:
   #     - alm
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"  # UI and OTLP HTTP collector
+      - "4317:4317"  # OTLP gRPC collector
+    networks:
+      - alm
+    environment:
+      - PHOENIX_SQL_DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/logsdb # we dont use DATABASE_URL becuase it point to localhost, and the backend server isnt in the same network as phoenix.
 
   postgres:
     image: postgres:15
@@ -86,6 +95,8 @@ services:
       - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-ansible-log-monitor}
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://user:password@postgres:5432/logsdb}
       - BACKEND_URL=${BACKEND_URL}
+      - COLLECTOR_ENDPOINT=${COLLECTOR_ENDPOINT:-http://phoenix:6006/v1/traces}
+      - PROD_CORS_ORIGIN=${PROD_CORS_ORIGIN:-http://localhost:3000}
     # volumes:
     #   - ./src:/app/src:ro
     #   - ./config:/app/config:ro
