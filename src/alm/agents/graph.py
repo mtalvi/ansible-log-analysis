@@ -7,11 +7,21 @@ from src.alm.agents.node import (
     router_step_by_step_solution,
     infer_cluster_log,
 )
+from src.alm.agents.loki_agent_node import (
+    identify_missing_log_data_node,
+    loki_execute_query_node,
+)
+from src.alm.agents.loki_output_schemas import LogToolOutput
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from src.alm.agents.get_more_context_agent.graph import more_context_agent_graph
 
 from typing import Literal
+
+
+# from langchain.globals import set_debug
+
+# set_debug(True)  # Enables LangChain debug mode globally
 
 llm = get_llm()
 
@@ -81,10 +91,10 @@ async def get_more_context_node(
     subgraph_state = await more_context_agent_graph.ainvoke(
         {"log_summary": log_summary, "log": log}
     )
-    loki_context = subgraph_state.get("loki_context", None)
-    cheat_sheet_context = subgraph_state["cheat_sheet_context"]
+    loki_context = subgraph_state.get("loki_context", None) #TODO: update additionalContextFromLoki to this field name
+    cheat_sheet_context = f"Context from cheat sheet:\n{subgraph_state["cheat_sheet_context"]}"
     context = (
-        f"{loki_context}\n\n{cheat_sheet_context}"
+        f"Context logs from loki:\n{loki_context}\n\n{cheat_sheet_context}"
         if loki_context
         else cheat_sheet_context
     )
@@ -104,6 +114,10 @@ def build_graph():
     builder.add_node(suggest_step_by_step_solution_node)
     builder.add_node(router_step_by_step_solution_node)
     builder.add_node(get_more_context_node)
+
+    # Add Loki query nodes
+    builder.add_node(identify_missing_log_data_node)
+    builder.add_node(loki_execute_query_node)
 
     return builder.compile()
 
