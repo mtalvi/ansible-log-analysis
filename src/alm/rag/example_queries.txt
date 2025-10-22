@@ -1,0 +1,37 @@
+# Ansible Error Test Queries
+# Lines starting with # are comments
+
+# Naming convention errors
+Role name does not match the required naming convention
+The role name must start with a specific prefix
+Invalid role name format detected in playbook
+
+# Task-related errors
+Task is missing a name attribute
+Task name is too generic or unclear
+Multiple tasks have the same name
+
+# Variable errors
+Variable is not defined in the playbook
+Undefined variable referenced in template
+Variable naming does not follow conventions
+
+# YAML syntax errors
+YAML syntax error in configuration file
+Indentation error in playbook
+Invalid YAML format detected
+
+# Permission errors
+Permission denied when executing playbook
+Cannot write to specified directory
+Insufficient permissions for task execution
+
+# File and path errors
+File or template not found
+Invalid path specified in playbook
+Cannot access required file
+
+# Module errors
+Module not found or not installed
+Invalid module parameters
+Module execution failed
