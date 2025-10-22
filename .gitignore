@@ -205,6 +205,15 @@ data/logs/
 *joblib
 data/*.json
 
+# RAG System - Vector Database and Embeddings
+data/*.index
+data/*.pkl
+*.index
+*.pkl
+# Alternative: uncomment to ignore entire data directory (except knowledge_base)
+# data/
+# !data/knowledge_base/
+
 .cursor/
 .vscode/
 *.secret
