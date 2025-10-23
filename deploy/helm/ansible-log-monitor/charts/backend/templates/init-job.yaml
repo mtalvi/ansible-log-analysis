@@ -24,6 +24,7 @@ spec:
         {{- end }}
     spec:
       restartPolicy: Never
+      serviceAccountName: {{ include "backend.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -46,6 +47,18 @@ spec:
                 secretKeyRef:
                   name: pgvector
                   key: uri
+        - name: wait-for-phoenix
+          image: quay.io/openshift/origin-cli:4.15
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Phoenix deployment to be ready..."
+              until oc rollout status deployment/{{ .Release.Name }}-phoenix -n {{ .Release.Namespace }} --timeout=10s; do
+                echo "Still waiting..."
+                sleep 3
+              done
+              echo "Phoenix service is ready!"
       containers:
         - name: init-pipeline
           {{- with .Values.securityContext }}

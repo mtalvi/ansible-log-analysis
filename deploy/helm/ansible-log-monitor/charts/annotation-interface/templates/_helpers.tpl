@@ -50,3 +50,13 @@ app.kubernetes.io/name: {{ include "annotation-interface.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "annotation-interface.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "annotation-interface.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
