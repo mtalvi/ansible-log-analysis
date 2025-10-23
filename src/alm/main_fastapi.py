@@ -7,22 +7,12 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
-from openinference.instrumentation.langchain import LangChainInstrumentor
-from phoenix.otel import register
+from src.alm.utils.phoenix import register_phoenix
 
 # Load environment variables before Phoenix registration
 load_dotenv()
 
-# Register Phoenix with auto-instrumentation
-tracer_provider = register(
-    project_name="my-llm-app",
-    auto_instrument=True,
-)
-
-# Explicitly instrument LangChain for Phoenix tracing
-LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
-
-tracer = tracer_provider.get_tracer(__name__)
+register_phoenix()
 
 
 def create_app() -> FastAPI:

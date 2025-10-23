@@ -9,8 +9,8 @@ from src.alm.agents.node import (
 )
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
+from src.alm.agents.get_more_context_agent.graph import more_context_agent_graph
 
-# from src.alm.agents.get_more_context_agent.graph import get_graph as get_more_context_agent_graph
 from typing import Literal
 
 llm = get_llm()
@@ -48,7 +48,10 @@ async def suggest_step_by_step_solution_node(
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
     log = state.logMessage
-    step_by_step_solution = await suggest_step_by_step_solution(log_summary, log, llm)
+    context = state.contextForStepByStepSolution
+    step_by_step_solution = await suggest_step_by_step_solution(
+        log_summary, log, llm, context
+    )
     return Command(goto=END, update={"stepByStepSolution": step_by_step_solution})
 
 
@@ -57,7 +60,7 @@ async def router_step_by_step_solution_node(
 ) -> Command[
     Literal[
         "suggest_step_by_step_solution_node",
-        "suggest_step_by_step_solution_with_context_node",
+        "get_more_context_node",
     ]
 ]:
     log_summary = state.logSummary
@@ -65,23 +68,30 @@ async def router_step_by_step_solution_node(
     return Command(
         goto="suggest_step_by_step_solution_node"
         if classification == "No More Context Needed"
-        else "suggest_step_by_step_solution_with_context_node",
+        else "get_more_context_node",
         update={"needMoreContext": classification == "Need More Context"},
     )
 
 
-async def suggest_step_by_step_solution_with_context_node(
+async def get_more_context_node(
     state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
     log = state.logMessage
-    # context_for_step_by_step_solution = get_more_context_agent_graph(inputs)
-    step_by_step_solution = await suggest_step_by_step_solution(
-        log_summary,
-        log,
-        llm,  # , context_for_step_by_step_solution TODO
+    subgraph_state = await more_context_agent_graph.ainvoke(
+        {"log_summary": log_summary, "log": log}
     )
-    return Command(goto=END, update={"stepByStepSolution": step_by_step_solution})
+    loki_context = subgraph_state.get("loki_context", None)
+    cheat_sheet_context = subgraph_state["cheat_sheet_context"]
+    context = (
+        f"{loki_context}\n\n{cheat_sheet_context}"
+        if loki_context
+        else cheat_sheet_context
+    )
+    return Command(
+        goto="suggest_step_by_step_solution_node",
+        update={"contextForStepByStepSolution": context},
+    )
 
 
 def build_graph():
@@ -93,7 +103,7 @@ def build_graph():
     builder.add_node(classify_log_node)
     builder.add_node(suggest_step_by_step_solution_node)
     builder.add_node(router_step_by_step_solution_node)
-    builder.add_node(suggest_step_by_step_solution_with_context_node)
+    builder.add_node(get_more_context_node)
 
     return builder.compile()
 
