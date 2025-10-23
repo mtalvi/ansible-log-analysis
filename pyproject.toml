@@ -1,6 +1,6 @@
 [project]
 name = "alm"
-version = "0.1.0"
+version = "0.1.1"
 description = "Ansible Log Monitoring"
 readme = "README.md"
 authors = [
@@ -33,8 +33,10 @@ dependencies = [
 dev = [
     "black>=25.1.0",
     "flake8>=7.3.0",
+    "html2text>=2025.4.15",
     "isort>=6.0.1",
     "jupyterlab>=4.4.5",
+    "langgraph-cli[inmem]>=0.4.4",
     "pre-commit>=4.2.0",
     "prettier>=0.0.7",
     "rich>=14.1.0",
