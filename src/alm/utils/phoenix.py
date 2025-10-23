@@ -1,11 +1,15 @@
+import os
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from phoenix.otel import register
 
 
 def register_phoenix():
-    # Register Phoenix with auto-instrumentation
+    # Get Phoenix endpoint from environment variable, defaults to localhost
+    phoenix_endpoint = os.getenv("COLLECTOR_ENDPOINT")
+
     tracer_provider = register(
-        project_name="my-llm-app",
+        project_name="ansible-log-monitor",
+        endpoint=phoenix_endpoint,
         auto_instrument=True,
     )
 

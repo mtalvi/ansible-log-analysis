@@ -78,10 +78,18 @@ ingress:
 
 resources:
   limits:
-    cpu: 1000m
-    memory: 5Gi
+    cpu: 500m
+    memory: 1Gi
   requests:
-    cpu: 100m
+    cpu: 250m
+    memory: 512Mi
+
+initResources:
+  limits:
+    cpu: 2000m
+    memory: 8Gi
+  requests:
+    cpu: 500m
     memory: 1Gi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
@@ -164,7 +172,7 @@ env:
   - name: CLUSTERING_PORT
     value: "8001"
   - name: COLLECTOR_ENDPOINT
-    value: "http://phoenix:6006/v1/traces"
+    value: "http://alm-phoenix:6006/v1/traces"
   # - name: PROD_CORS_ORIGIN # TODO check me
   #   value: "http://localhost:3000"
 

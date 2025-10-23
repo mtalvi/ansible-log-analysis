@@ -79,7 +79,7 @@ spec:
             - secretRef:
                 name: model-secret
           {{- end }}
-          {{- with .Values.resources }}
+          {{- with .Values.initResources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
