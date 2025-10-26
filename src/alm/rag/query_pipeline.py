@@ -4,7 +4,7 @@
 """
 Ansible Error RAG System - Query Pipeline
 
-This module implements Step 5 from ADR-001:
+This module implements the query pipeline for the Ansible Error RAG system:
 - Receives log summaries from agents
 - Generates embeddings for queries
 - Performs similarity search in FAISS
@@ -72,7 +72,7 @@ class AnsibleErrorQueryPipeline:
     """
     Query pipeline for retrieving relevant Ansible errors.
     
-    Pipeline stages (per ADR-001):
+    Pipeline stages (per ADR):
     1. Generate query embedding
     2. Similarity search (top-k candidates)
     3. Filter by threshold
