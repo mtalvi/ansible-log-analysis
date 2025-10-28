@@ -3,10 +3,25 @@
 
 """
 Interactive testing tool for the query pipeline.
+
+Usage (from project root):
+    # Interactive mode
+    python tests/rag/test_queries.py
+    
+    # Batch mode with example queries file
+    python tests/rag/test_queries.py data/example_queries.txt
+    
+    # Batch mode with custom queries file
+    python tests/rag/test_queries.py /path/to/queries.txt
 """
 
 import sys
-from query_pipeline import AnsibleErrorQueryPipeline, format_response_for_display
+from pathlib import Path
+
+# Add src to path to enable imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+from alm.rag.query_pipeline import AnsibleErrorQueryPipeline, format_response_for_display
 
 
 def interactive_mode():
@@ -118,7 +133,25 @@ def main():
     """Main entry point."""
     if len(sys.argv) > 1:
         # Batch mode with file
-        batch_mode(sys.argv[1])
+        queries_file = sys.argv[1]
+        
+        # If the file doesn't exist, check if it's a relative path from the project root
+        if not Path(queries_file).exists():
+            # Try relative to project root (script is now in tests/rag/)
+            script_dir = Path(__file__).parent
+            project_root = script_dir.parent.parent
+            alt_path = project_root / queries_file
+            
+            if alt_path.exists():
+                queries_file = str(alt_path)
+            else:
+                print(f"Error: Queries file not found: {queries_file}")
+                print(f"Also checked: {alt_path}")
+                print("\nExample usage (from project root):")
+                print("  python tests/rag/test_queries.py data/example_queries.txt")
+                sys.exit(1)
+        
+        batch_mode(queries_file)
     else:
         # Interactive mode
         interactive_mode()

@@ -65,7 +65,7 @@ class StorageConfig:
     
     def __init__(self):
         self.data_dir = Path(os.getenv('DATA_DIR', './data'))
-        self.knowledge_base_dir = Path(os.getenv('KNOWLEDGE_BASE_DIR', './knowledge_base'))
+        self.knowledge_base_dir = Path(os.getenv('KNOWLEDGE_BASE_DIR', './data/knowledge_base'))
         
     @property
     def index_path(self) -> str:

@@ -471,8 +471,8 @@ def main():
 
     parser = AnsibleErrorParser()
 
-    # Update this path to whichever file you’re testing
-    pdf_path = "/home/mtalvi/ansible-log-analysis/knowledge_base/file_7.pdf"
+    # Update this path to whichever file you're testing
+    pdf_path = "/home/mtalvi/ansible-log-analysis/data/knowledge_base/file_7.pdf"
     chunks = parser.parse_pdf_to_chunks(pdf_path)
 
     # Export metadata for quick inspection
