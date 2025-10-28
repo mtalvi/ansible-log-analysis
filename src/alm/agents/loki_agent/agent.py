@@ -3,18 +3,14 @@ LangChain ToolCallingAgent integration with LangGraph for perfect log query func
 """
 
 import json
-from typing import Dict, Any, Optional, Literal
+from typing import Dict, Any, Optional
 
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langgraph.types import Command
 
-from alm.agents.loki_output_schemas import IdentifyMissingDataSchema, LogStream, LogToolOutput, LokiAgentOutput, ToolStatus
-
-from ..llm import get_llm
-from ..models import GrafanaAlert
-from .loki_tools import LOKI_TOOLS
+from alm.agents.loki_agent.schemas import LogToolOutput, LokiAgentOutput, ToolStatus
+from alm.llm import get_llm
+from alm.tools import LOKI_TOOLS
 
 
 class LokiQueryAgent:
@@ -26,14 +22,17 @@ class LokiQueryAgent:
         self.llm = get_llm()
         self.tools = LOKI_TOOLS
         self.agent = None
-        self.agent_executor : AgentExecutor = None
+        self.agent_executor: AgentExecutor = None
         self._initialize_agent()
 
     def _initialize_agent(self):
         """Initialize the LangChain ToolCallingAgent"""
         # Create the prompt template for the agent
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a specialized log querying assistant. Your job is to select the RIGHT TOOL for the user's request.
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """You are a specialized log querying assistant. Your job is to select the RIGHT TOOL for the user's request.
 
 ## Available Tools:
 
@@ -92,16 +91,16 @@ When context is provided in the input, use it to help choose the right tool and 
 - Extract exact parameters from the user's request AND context fields
 - DO NOT call multiple tools - select the single best tool
 - You have to select one tool and call it with the correct parameters
-- DO NOT confuse "Log Message" with "Log Summary" - they are different!"""),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}")
-        ])
+- DO NOT confuse "Log Message" with "Log Summary" - they are different!""",
+                ),
+                ("human", "{input}"),
+                ("placeholder", "{agent_scratchpad}"),
+            ]
+        )
 
         # Create the tool calling agent
         self.agent = create_tool_calling_agent(
-            llm=self.llm,
-            tools=self.tools,
-            prompt=prompt
+            llm=self.llm, tools=self.tools, prompt=prompt
         )
 
         # Create the agent executor
@@ -113,10 +112,12 @@ When context is provided in the input, use it to help choose the right tool and 
             early_stopping_method="force",
             handle_parsing_errors=True,
             return_intermediate_steps=True,
-            trim_intermediate_steps=1
+            trim_intermediate_steps=1,
         )
 
-    async def query_logs(self, user_request: str, context: Optional[Dict[str, Any]] = None) -> LokiAgentOutput:
+    async def query_logs(
+        self, user_request: str, context: Optional[Dict[str, Any]] = None
+    ) -> LokiAgentOutput:
         """
         Execute log query using the ToolCallingAgent.
 
@@ -138,51 +139,62 @@ When context is provided in the input, use it to help choose the right tool and 
                 context_parts = []
 
                 # Add logMessage first with clear label to avoid confusion with summary
-                if 'logMessage' in context and context['logMessage']:
-                    value_str = str(context['logMessage'])
+                if "logMessage" in context and context["logMessage"]:
+                    value_str = str(context["logMessage"])
                     if len(value_str) > 500:
                         value_str = value_str[:500] + "..."
                     context_parts.append(f"Log Message: {value_str}")
 
                 # Add all other fields generically
                 for key, value in context.items():
-                    if key != 'logMessage' and value:  # Skip logMessage (already added) and empty values
+                    if (
+                        key != "logMessage" and value
+                    ):  # Skip logMessage (already added) and empty values
                         # Convert camelCase to Title Case with spaces
-                        formatted_key = ''.join([' ' + c if c.isupper() else c for c in key]).strip().title()
+                        formatted_key = (
+                            "".join([" " + c if c.isupper() else c for c in key])
+                            .strip()
+                            .title()
+                        )
 
                         context_parts.append(f"{formatted_key}: {str(value)}")
 
                 if context_parts:
-                    enhanced_request = f"{user_request}\n\nAdditional Context:\n" + "\n".join(context_parts)
+                    enhanced_request = (
+                        f"{user_request}\n\nAdditional Context:\n"
+                        + "\n".join(context_parts)
+                    )
 
             print(f"\n\n📊 Enhanced Request:\n{enhanced_request}\n\n")
 
             # Execute the agent
-            result = await self.agent_executor.ainvoke({
-                "input": enhanced_request
-            })
+            result = await self.agent_executor.ainvoke({"input": enhanced_request})
 
             # Parse the result
             # Get the last tool call and its result from intermediate steps
             if result.get("intermediate_steps"):
                 print(f"\n\n📊 Result: {result}\n\n")
-                
+
                 # Each step is a tuple of (ToolAgentAction, result_string)
                 last_step = result["intermediate_steps"][-1]
-                tool_result = last_step[1]  # Get the second element which is the actual tool response
-                
+                tool_result = last_step[
+                    1
+                ]  # Get the second element which is the actual tool response
+
                 try:
                     # Parse the tool result should be JSON representation of LogToolOutput
-                    log_tool_output_object = LogToolOutput.model_validate_json(tool_result)   
-                    
+                    log_tool_output_object = LogToolOutput.model_validate_json(
+                        tool_result
+                    )
+
                     print(f"\n\n📊 LogToolOutput object:\n{log_tool_output_object}\n\n")
-                    
+
                     return LokiAgentOutput(
                         status=ToolStatus.SUCCESS,
                         user_request=user_request,
                         agent_result=log_tool_output_object,
                         raw_output=tool_result,
-                        intermediate_steps=result.get("intermediate_steps", [])
+                        intermediate_steps=result.get("intermediate_steps", []),
                     )
                 except json.JSONDecodeError as e:
                     print(f"JSON decode error in query_logs: {e}")
@@ -190,18 +202,28 @@ When context is provided in the input, use it to help choose the right tool and 
                     return LokiAgentOutput(
                         status=ToolStatus.SUCCESS,
                         user_request=user_request,
-                        agent_result=LogToolOutput(status=ToolStatus.ERROR, message=tool_result, logs=[], number_of_logs=0),
+                        agent_result=LogToolOutput(
+                            status=ToolStatus.ERROR,
+                            message=tool_result,
+                            logs=[],
+                            number_of_logs=0,
+                        ),
                         raw_output=tool_result,
-                        intermediate_steps=result.get("intermediate_steps", [])
+                        intermediate_steps=result.get("intermediate_steps", []),
                     )
-            
+
             else:
                 return LokiAgentOutput(
                     status=ToolStatus.ERROR,
                     user_request=user_request,
-                    agent_result=LogToolOutput(status=ToolStatus.ERROR, message=f"No intermediate steps received from Loki Agent. Loki Agent result: {result}", logs=[], number_of_logs=0),
+                    agent_result=LogToolOutput(
+                        status=ToolStatus.ERROR,
+                        message=f"No intermediate steps received from Loki Agent. Loki Agent result: {result}",
+                        logs=[],
+                        number_of_logs=0,
+                    ),
                     raw_output=result,
-                    intermediate_steps=result.get("intermediate_steps", [])
+                    intermediate_steps=result.get("intermediate_steps", []),
                 )
 
         except Exception as e:
@@ -209,9 +231,16 @@ When context is provided in the input, use it to help choose the right tool and 
             return LokiAgentOutput(
                 status=ToolStatus.ERROR,
                 user_request=user_request,
-                agent_result=LogToolOutput(status=ToolStatus.ERROR, message=f"Loki Agent execution failed: {str(e)}", logs=[], number_of_logs=0),
+                agent_result=LogToolOutput(
+                    status=ToolStatus.ERROR,
+                    message=f"Loki Agent execution failed: {str(e)}",
+                    logs=[],
+                    number_of_logs=0,
+                ),
                 raw_output=str(e),
-                intermediate_steps=result.get("intermediate_steps", []) if result else []
+                intermediate_steps=result.get("intermediate_steps", [])
+                if result
+                else [],
             )
 
 
@@ -225,135 +254,3 @@ def get_loki_agent() -> LokiQueryAgent:
     if _loki_agent is None:
         _loki_agent = LokiQueryAgent()
     return _loki_agent
-
-
-# LangGraph Node Functions for Loki MCP
-
-async def identify_missing_log_data_node(
-    state: GrafanaAlert,
-) -> Command[Literal["loki_execute_query_node"]]:
-    """
-    Node that processes a request for additional log context using Loki.
-    This node uses an LLM to intelligently identify what data is missing and
-    generate a natural language request for additional logs.
-    """
-    # Get the current state
-    log_summary = state.logSummary
-    log_stream = state.logStream
-
-    # Get LLM instance
-    llm = get_llm()
-
-    # Use LLM to identify what data is missing and generate a smart request
-    user_request = await identify_missing_data(
-        log_summary=log_summary,
-        log_stream=log_stream,
-        llm=llm
-    )
-
-    return Command(
-        goto="loki_execute_query_node",
-        update={"lokiUserRequest": user_request}
-    )
-
-
-async def loki_execute_query_node(
-    state: GrafanaAlert,
-) -> Command[Literal["suggest_step_by_step_solution_with_context_node"]]:
-    """
-    Node that executes the Loki query using the ToolCallingAgent.
-
-    TODO: Add query validation and retry logic
-    """
-    try:
-        user_request = state.lokiUserRequest
-        if not user_request:
-            raise ValueError("No user request found in state.lokiUserRequest. \
-                Please use the loki_user_query_node to set the user request.")
-        agent = get_loki_agent()
-
-        # Prepare context from the current state
-        context = {
-            "logSummary": state.logSummary,
-            "expertClassification": state.expertClassification,
-            "logMessage": state.logMessage,
-            "logStream": state.logStream
-        }
-
-        # Execute the query
-        result = await agent.query_logs(user_request, context)
-
-        # Build context from Loki query result
-        old_loki_context = state.additionalContextFromLoki
-        if result.agent_result and isinstance(result.agent_result, LogToolOutput):
-            additional_context = result.agent_result.build_context()
-        else:
-            print(f"WARNING: No logs returned from Loki query.")
-            additional_context = ""
-        if old_loki_context and additional_context:
-            additional_context = old_loki_context + "\n\n" + additional_context
-
-        return Command(
-            goto="suggest_step_by_step_solution_with_context_node",
-            update={
-                "lokiQueryResult": result.model_dump(),
-                "additionalContextFromLoki": additional_context
-            }
-        )
-
-    except Exception as e:
-        print(f"Exception in loki_execute_query_node: {e}")
-        print(f"WARNING: Continuing to solution without Loki context due to error.")
-        return Command(
-            goto="suggest_step_by_step_solution_with_context_node",
-            update={
-                "lokiQueryResult": LokiAgentOutput(
-                    status=ToolStatus.ERROR,
-                    user_request=user_request if user_request else "No user request found",
-                    agent_result=LogToolOutput(status=ToolStatus.ERROR, message=f"Failed to execute Loki query: {str(e)}", logs=[], number_of_logs=0),
-                    raw_output=str(e),
-                    intermediate_steps=[]
-                ).model_dump()
-            }
-        )
-
-async def identify_missing_data(
-    log_summary: str, log_stream: LogStream | Dict[str, Any], llm: ChatOpenAI
-):
-    """
-    Identify what critical data is missing to fully understand and resolve the issue.
-
-    Args:
-        log_summary: Summary of the log to analyze
-        log_stream: Log stream of the log (can be LogStream object or dict)
-        llm: ChatOpenAI instance to use for generation
-
-    Returns:
-        str: Natural language description of missing data needed for investigation
-    """
-    with open("src/alm/agents/prompts/generate_loki_query_request.md", "r") as f:
-        generate_loki_query_request_user_message = f.read()
-
-    # Convert log_stream to LogStream object if it's a dict
-    if isinstance(log_stream, dict):
-        log_stream_obj = LogStream.model_validate(log_stream)
-    else:
-        log_stream_obj = log_stream
-
-    llm_identify_missing_data = llm.with_structured_output(IdentifyMissingDataSchema)
-    missing_data_result = await llm_identify_missing_data.ainvoke(
-        [
-            {
-                "role": "system",
-                "content": "You are an Ansible expert and helpful assistant specializing in log analysis",
-            },
-            {
-                "role": "user",
-                "content": generate_loki_query_request_user_message.replace(
-                    "{log_summary}", log_summary
-                ).replace("{log_stream}", log_stream_obj.model_dump_json(indent=2, exclude_none=True)),
-            },
-        ]
-    )
-    return missing_data_result.missing_data_request
-

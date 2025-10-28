@@ -4,7 +4,6 @@ MCP Client for Loki log querying.
 Handles MCP session management and tool calling.
 """
 
-
 import aiohttp
 
 
@@ -32,15 +31,15 @@ class MCPClient:
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "clientInfo": {"name": "test-chat", "version": "1.0.0"}
-            }
+                "clientInfo": {"name": "test-chat", "version": "1.0.0"},
+            },
         }
 
         try:
             async with self.session.post(
                 self.server_url,
                 json=payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             ) as response:
                 response.raise_for_status()
 
@@ -62,20 +61,17 @@ class MCPClient:
             print("No active session. Call initialize() first.")
             return None
 
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {}
-        }
+        payload = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
         headers = {
             "Content-Type": "application/json",
-            "Mcp-Session-Id": self.session_id
+            "Mcp-Session-Id": self.session_id,
         }
 
         try:
-            async with self.session.post(self.server_url, json=payload, headers=headers) as response:
+            async with self.session.post(
+                self.server_url, json=payload, headers=headers
+            ) as response:
                 response.raise_for_status()
                 data = await response.json()
 
@@ -97,19 +93,18 @@ class MCPClient:
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": {
-                "name": tool_name,
-                "arguments": arguments
-            }
+            "params": {"name": tool_name, "arguments": arguments},
         }
 
         headers = {
             "Content-Type": "application/json",
-            "Mcp-Session-Id": self.session_id
+            "Mcp-Session-Id": self.session_id,
         }
 
         try:
-            async with self.session.post(self.server_url, json=payload, headers=headers) as response:
+            async with self.session.post(
+                self.server_url, json=payload, headers=headers
+            ) as response:
                 response.raise_for_status()
                 data = await response.json()
 

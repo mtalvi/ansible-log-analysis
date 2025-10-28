@@ -11,23 +11,18 @@ from dateutil import parser as date_parser
 
 from langchain_core.tools import tool
 
-from ..mcp import MCPClient
-from .loki_input_schemas import (
-    DEFAULT_DIRECTION,
+from alm.mcp import MCPClient
+from alm.agents.loki_agent.schemas import (
     DEFAULT_LINE_ABOVE,
-    DEFAULT_END_TIME,
     DEFAULT_LIMIT,
-    DEFAULT_START_TIME,
     FileLogSchema,
     LogLevel,
     SearchTextSchema,
     LogLinesAboveSchema,
-)
-from .loki_output_schemas import (
     LogEntry,
     LogStream,
     LogToolOutput,
-    ToolStatus
+    ToolStatus,
 )
 
 
@@ -56,8 +51,8 @@ def parse_time_input(time_str: str) -> str:
         return f"-{time_str.replace('ago', '')}"
 
     # Handle direct relative times like "2h", "30m", "1d"
-    if any(unit in time_str for unit in ['h', 'm', 's', 'd']):
-        if not '-' in time_str:
+    if any(unit in time_str for unit in ["h", "m", "s", "d"]):
+        if "-" not in time_str:
             return f"-{time_str}"
         else:
             return time_str
@@ -66,18 +61,24 @@ def parse_time_input(time_str: str) -> str:
     try:
         dt = date_parser.parse(time_str)
         return dt.isoformat()
-    except:
+    except Exception:
         # Fallback: return as-is and let Loki handle it
         return time_str
 
 
-async def execute_loki_query(query: str, start: str|int = "-24h",
-                             end: str|int = "now", limit: int = DEFAULT_LIMIT,
-                             direction: str = "backward") -> str:
+async def execute_loki_query(
+    query: str,
+    start: str | int = "-24h",
+    end: str | int = "now",
+    limit: int = DEFAULT_LIMIT,
+    direction: str = "backward",
+) -> str:
     """Execute a LogQL query via MCP client"""
     client = None
     if limit > MAX_LOGS_PER_QUERY:
-        print(f"Warning: Limit is greater than {MAX_LOGS_PER_QUERY}, setting to {MAX_LOGS_PER_QUERY}")
+        print(
+            f"Warning: Limit is greater than {MAX_LOGS_PER_QUERY}, setting to {MAX_LOGS_PER_QUERY}"
+        )
         limit = MAX_LOGS_PER_QUERY
 
     try:
@@ -91,7 +92,7 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
             "end": parse_time_input(end) if isinstance(end, str) else end,
             "limit": limit,
             "direction": direction,
-            "format": "json"
+            "format": "json",
         }
 
         print(f"🔍 Executing MCP query with args: {arguments}")
@@ -111,11 +112,13 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
                     for stream in parsed_result["data"]["result"]:
                         stream_labels = stream.get("stream", {})
                         for entry in stream.get("values", []):
-                            logs.append(LogEntry(
-                                timestamp=entry[0],
-                                stream=stream_labels,
-                                message=entry[1]
-                            ))
+                            logs.append(
+                                LogEntry(
+                                    timestamp=entry[0],
+                                    stream=stream_labels,
+                                    message=entry[1],
+                                )
+                            )
 
                 return LogToolOutput(
                     status=ToolStatus.SUCCESS,
@@ -123,7 +126,9 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
                     logs=logs,
                     number_of_logs=len(logs),
                     query=query,
-                    execution_time_ms=parsed_result.get("stats", {}).get("summary", {}).get("execTime", 0)
+                    execution_time_ms=parsed_result.get("stats", {})
+                    .get("summary", {})
+                    .get("execTime", 0),
                 ).model_dump_json(indent=2)
             except json.JSONDecodeError as e:
                 print(f"JSON decode error: {e}")
@@ -132,7 +137,7 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
                     status=ToolStatus.SUCCESS,
                     logs=[LogEntry(stream=LogStream(), message=result)],
                     number_of_logs=1,
-                    query=query
+                    query=query,
                 ).model_dump_json(indent=2)
         else:
             # Handle non-JSON or error responses
@@ -141,12 +146,13 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
                 status=ToolStatus.SUCCESS,
                 logs=[LogEntry(stream=LogStream(), message=str(result))],
                 number_of_logs=1,
-                query=query
+                query=query,
             ).model_dump_json(indent=2)
 
     except Exception as e:
         print(f"MCP query execution failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
         raise Exception(f"Failed to execute Loki query: {str(e)}")
     finally:
@@ -154,14 +160,14 @@ async def execute_loki_query(query: str, start: str|int = "-24h",
         if client:
             try:
                 await client.__aexit__(None, None, None)
-            except:
+            except Exception:
                 pass
 
 
 @tool(args_schema=FileLogSchema)
 async def get_logs_by_file_name(
     file_name: str,
-    start_time: str|int = "-24h",
+    start_time: str | int = "-24h",
     end_time: str = "now",
     level: LogLevel | None = None,
     limit: int = DEFAULT_LIMIT,
@@ -180,7 +186,7 @@ async def get_logs_by_file_name(
         query_parts = [f'{{filename=~".*{file_name}$"}}']
 
         if level:
-            query_parts.append(f'| detected_level=`{level.value}`')
+            query_parts.append(f"| detected_level=`{level.value}`")
 
         query = "".join(query_parts)
 
@@ -190,10 +196,7 @@ async def get_logs_by_file_name(
     except Exception as e:
         print(f"Error in get_logs_by_file_name: {e}")
         output = LogToolOutput(
-            status=ToolStatus.ERROR,
-            message=str(e),
-            number_of_logs=0,
-            logs=[]
+            status=ToolStatus.ERROR, message=str(e), number_of_logs=0, logs=[]
         )
         return output.model_dump_json(indent=2)
 
@@ -201,10 +204,10 @@ async def get_logs_by_file_name(
 @tool(args_schema=SearchTextSchema)
 async def search_logs_by_text(
     text: str,
-    start_time: str|int = "-24h",
-    end_time: str|int = "now",
+    start_time: str | int = "-24h",
+    end_time: str | int = "now",
     file_name: Optional[str] = None,
-    limit: int = DEFAULT_LIMIT
+    limit: int = DEFAULT_LIMIT,
 ) -> str:
     """
     Search for logs containing specific text (case-sensitive) across all sources or in a specific file.
@@ -235,18 +238,13 @@ async def search_logs_by_text(
     except Exception as e:
         print(f"Error in search_logs_by_text: {e}")
         output = LogToolOutput(
-            status=ToolStatus.ERROR,
-            message=str(e),
-            number_of_logs=0,
-            logs=[]
+            status=ToolStatus.ERROR, message=str(e), number_of_logs=0, logs=[]
         )
         return output.model_dump_json(indent=2)
 
 
 def _extract_context_lines_above(
-    all_logs: list[LogEntry],
-    target_message: str,
-    lines_above: int
+    all_logs: list[LogEntry], target_message: str, lines_above: int
 ) -> tuple[list[LogEntry], Optional[str]]:
     """
     Extract N lines before the target message from a list of logs.
@@ -289,9 +287,7 @@ def _extract_context_lines_above(
 
 @tool(args_schema=LogLinesAboveSchema)
 async def get_log_lines_above(
-    file_name: str,
-    log_message: str,
-    lines_above: int = DEFAULT_LINE_ABOVE
+    file_name: str, log_message: str, lines_above: int = DEFAULT_LINE_ABOVE
 ) -> str:
     """
     Get log lines that occurred before/above a specific log line in a file.
@@ -314,14 +310,18 @@ async def get_log_lines_above(
     """
     try:
         # Step 1: Find the exact log line to get its timestamp
-        print(f"\n🔍 [get_log_lines_above] Step 1: Finding target log message in {file_name}")
-        target_result = await search_logs_by_text.ainvoke({
-            "text": log_message,
-            "file_name": file_name,
-            "start_time": "-720h", # 30 days ago which is the max time window for Loki
-            "end_time": "now",
-            "limit": 1
-        })
+        print(
+            f"\n🔍 [get_log_lines_above] Step 1: Finding target log message in {file_name}"
+        )
+        target_result = await search_logs_by_text.ainvoke(
+            {
+                "text": log_message,
+                "file_name": file_name,
+                "start_time": "-720h",  # 30 days ago which is the max time window for Loki
+                "end_time": "now",
+                "limit": 1,
+            }
+        )
         target_result = LogToolOutput.model_validate_json(target_result)
 
         if not target_result.logs:
@@ -330,7 +330,7 @@ async def get_log_lines_above(
                 message=f"Log message '{log_message}' not found in file '{file_name}'",
                 query=target_result.query,
                 number_of_logs=0,
-                logs=[]
+                logs=[],
             )
             return output.model_dump_json(indent=2)
 
@@ -349,7 +349,7 @@ async def get_log_lines_above(
                 status=ToolStatus.ERROR,
                 message=f"Failed to parse target timestamp '{target_timestamp_raw}': {str(e)}",
                 number_of_logs=0,
-                logs=[]
+                logs=[],
             ).model_dump_json(indent=2)
 
         # Calculate time window: 25 days before to 2 minutes after target
@@ -361,7 +361,9 @@ async def get_log_lines_above(
         end_time_iso = end_datetime.isoformat()
 
         print(f"📅 Time window: {start_time_iso} to {end_time_iso}")
-        print(f"🔍 [get_log_lines_above] Step 2: Querying large context window (limit=5000)")
+        print(
+            "🔍 [get_log_lines_above] Step 2: Querying large context window (limit=5000)"
+        )
 
         # Step 3: Query with wide time window and large limit
         context_query = {
@@ -380,25 +382,25 @@ async def get_log_lines_above(
                 message=f"Failed to retrieve context logs: {context_data.message}",
                 query=context_data.query,
                 number_of_logs=0,
-                logs=[]
+                logs=[],
             )
             return output.model_dump_json(indent=2)
 
         print(f"📊 Fetched {len(context_data.logs)} logs from Loki")
-        print(f"🔍 [get_log_lines_above] Step 3: Extracting {lines_above} lines before target")
+        print(
+            f"🔍 [get_log_lines_above] Step 3: Extracting {lines_above} lines before target"
+        )
 
         # Step 4: Extract N lines before the target using client-side filtering
         # Note: context_data.logs are in reverse chronological order (backward direction)
         # We need to reverse them to get chronological order for proper indexing
         chronological_logs = list(reversed(context_data.logs))
-        
+
         print(f"first line of chronological logs: {chronological_logs[0].message}")
         print(f"last line of chronological logs: {chronological_logs[-1].message}")
 
         context_logs, error = _extract_context_lines_above(
-            chronological_logs,
-            log_message,
-            lines_above
+            chronological_logs, log_message, lines_above
         )
 
         if error:
@@ -407,12 +409,14 @@ async def get_log_lines_above(
                 message=error,
                 query=context_data.query,
                 number_of_logs=0,
-                logs=[]
+                logs=[],
             )
             return output.model_dump_json(indent=2)
 
         print(f"✅ Successfully extracted {len(context_logs)} logs (including target)")
-        print(f"   Requested: {lines_above} lines above, Got: {len(context_logs) - 1} lines above + target")
+        print(
+            f"   Requested: {lines_above} lines above, Got: {len(context_logs) - 1} lines above + target"
+        )
 
         # Step 5: Return the context logs
         output = LogToolOutput(
@@ -421,20 +425,18 @@ async def get_log_lines_above(
             query=context_data.query,
             number_of_logs=len(context_logs),
             logs=context_logs,
-            execution_time_ms=context_data.execution_time_ms
+            execution_time_ms=context_data.execution_time_ms,
         )
         return output.model_dump_json(indent=2)
 
     except Exception as e:
         print(f"❌ Error in get_log_lines_above: {e}")
         import traceback
+
         traceback.print_exc()
 
         output = LogToolOutput(
-            status=ToolStatus.ERROR,
-            message=str(e),
-            number_of_logs=0,
-            logs=[]
+            status=ToolStatus.ERROR, message=str(e), number_of_logs=0, logs=[]
         )
         return output.model_dump_json(indent=2)
 

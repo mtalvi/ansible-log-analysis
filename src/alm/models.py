@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Dict, Optional
 
 from sqlalchemy import JSON
 from sqlmodel import Column, Field, SQLModel
@@ -42,21 +42,7 @@ class GrafanaAlert(SQLModel, table=True):
         sa_column=Column(JSON),
     )
 
-    # Loki MCP integration fields
-    lokiUserRequest: Optional[str] = Field(
-        default="", description="User's natural language request for additional logs"
-    )
-    lokiQueryResult: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Dictionary representation of LokiAgentOutput object",
-        sa_column=Column(JSON),
-    )
-    additionalContextFromLoki: Optional[str] = Field(
-        default="",
-        description="Additional context logs from Loki"
-    )
-
-    # # Loki-specific fields that might be extracted from log content
+    # Loki-specific fields that might be extracted from log content
     logStream: Optional[Dict[str, str]] = Field(
         default=None, description="Loki log stream identifier", sa_column=Column(JSON)
     )

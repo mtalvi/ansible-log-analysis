@@ -4,11 +4,11 @@ These schemas define the output structure for each tool to ensure consistency.
 """
 
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 from collections import defaultdict
-from .loki_input_schemas import LogLevel
+from .inputs import LogLevel
 
 
 class ToolStatus(str, Enum):
@@ -18,27 +18,46 @@ class ToolStatus(str, Enum):
 
 class LogStream(BaseModel):
     """Represents a single log stream from Loki"""
-    detected_level: Optional[LogLevel] = Field(default=None, description="Detected level of the log")
+
+    detected_level: Optional[LogLevel] = Field(
+        default=None, description="Detected level of the log"
+    )
     filename: Optional[str] = Field(default=None, description="Filename of the log")
     job: Optional[str] = Field(default=None, description="Job of the log")
-    service_name: Optional[str] = Field(default=None, description="Service name of the log")
+    service_name: Optional[str] = Field(
+        default=None, description="Service name of the log"
+    )
 
 
 class LogEntry(BaseModel):
     """Represents a single log entry from Loki"""
-    timestamp: str = Field(default="Unknown timestamp", description="Timestamp of the log")
+
+    timestamp: str = Field(
+        default="Unknown timestamp", description="Timestamp of the log"
+    )
     stream: LogStream = Field(description="Log stream of the log")
     message: str = Field(description="Message of the log")
 
 
 class LogToolOutput(BaseModel):
     """Output schema for tools that retrieve logs"""
+
     status: ToolStatus = Field(description="Status of the operation")
-    message: Optional[str] = Field(default=None, description="Human-readable message, especially for errors")
-    query: Optional[str] = Field(default=None, description="The LogQL query that was executed")
-    execution_time_ms: Optional[int] = Field(default=None, description="Query execution time in milliseconds")
-    logs: List[LogEntry] = Field(default_factory=list, description="List of log entries retrieved")
-    number_of_logs: int = Field(default=0, description="Total number of log entries returned")
+    message: Optional[str] = Field(
+        default=None, description="Human-readable message, especially for errors"
+    )
+    query: Optional[str] = Field(
+        default=None, description="The LogQL query that was executed"
+    )
+    execution_time_ms: Optional[int] = Field(
+        default=None, description="Query execution time in milliseconds"
+    )
+    logs: List[LogEntry] = Field(
+        default_factory=list, description="List of log entries retrieved"
+    )
+    number_of_logs: int = Field(
+        default=0, description="Total number of log entries returned"
+    )
 
     def build_context(self) -> str:
         """
@@ -50,13 +69,17 @@ class LogToolOutput(BaseModel):
 
 class LokiAgentOutput(BaseModel):
     """Output schema for the Loki agent"""
+
     user_request: str = Field(description="User request that was processed")
     status: ToolStatus = Field(description="Status of the operation")
-    message: Optional[str] = Field(default=None, description="Human-readable message, especially for errors")
+    message: Optional[str] = Field(
+        default=None, description="Human-readable message, especially for errors"
+    )
     agent_result: LogToolOutput = Field(description="Result of the agent")
     raw_output: str | Any = Field(description="Raw output of the agent")
-    intermediate_steps: List = Field(default_factory=list, description="Intermediate steps of the agent")
-
+    intermediate_steps: List = Field(
+        default_factory=list, description="Intermediate steps of the agent"
+    )
 
 
 class IdentifyMissingDataSchema(BaseModel):
@@ -66,6 +89,7 @@ class IdentifyMissingDataSchema(BaseModel):
 
 
 # Helper functions for log context building
+
 
 def parse_timestamp(timestamp_str: str) -> datetime:
     """Parse timestamp string to datetime object for sorting"""
@@ -77,7 +101,7 @@ def parse_timestamp(timestamp_str: str) -> datetime:
             return datetime.fromtimestamp(timestamp_seconds)
 
         # Try ISO format
-        return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        return datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         # Return epoch if parsing fails
         return datetime.fromtimestamp(0)
@@ -102,7 +126,12 @@ def build_log_context(logs: List["LogEntry"]) -> str:
     logs_by_stream = defaultdict(list)
     for log in logs:
         # Convert stream dict to a string key for grouping
-        stream_key = ", ".join([f"{k}={v}" for k, v in sorted(log.stream.model_dump(exclude_none=True).items())])
+        stream_key = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in sorted(log.stream.model_dump(exclude_none=True).items())
+            ]
+        )
         logs_by_stream[stream_key].append(log)
 
     # Build context with grouped and sorted logs
@@ -113,9 +142,9 @@ def build_log_context(logs: List["LogEntry"]) -> str:
         sorted_logs = sorted(stream_logs, key=lambda x: parse_timestamp(x.timestamp))
 
         # Add stream header
-        context_parts.append(f"\n{'='*80}")
+        context_parts.append(f"\n{'=' * 80}")
         context_parts.append(f"Stream: {stream_key}")
-        context_parts.append(f"{'='*80}")
+        context_parts.append(f"{'=' * 80}")
 
         # Add logs for this stream
         for log in sorted_logs:
@@ -123,4 +152,3 @@ def build_log_context(logs: List["LogEntry"]) -> str:
             context_parts.append(f"{readable_timestamp} - {log.message}")
 
     return "\n".join(context_parts)
-

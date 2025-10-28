@@ -1,3 +1,5 @@
+from alm.agents.get_more_context_agent.state import ContextAgentState
+from alm.agents.loki_agent.schemas import LogEntry, LogStream
 from src.alm.llm import get_llm
 from src.alm.models import GrafanaAlert
 from src.alm.agents.node import (
@@ -7,11 +9,6 @@ from src.alm.agents.node import (
     router_step_by_step_solution,
     infer_cluster_log,
 )
-from src.alm.agents.loki_agent_node import (
-    identify_missing_log_data_node,
-    loki_execute_query_node,
-)
-from src.alm.agents.loki_output_schemas import LogToolOutput
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from src.alm.agents.get_more_context_agent.graph import more_context_agent_graph
@@ -87,12 +84,26 @@ async def get_more_context_node(
     state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
-    log = state.logMessage
-    subgraph_state = await more_context_agent_graph.ainvoke(
-        {"log_summary": log_summary, "log": log}
+    log_stream = LogStream.model_validate(state.logStream)
+    log_entry = LogEntry(
+        message=state.logMessage,
+        stream=log_stream,
+        timestamp="Unknown timestamp"
+        if state.logTimestamp is None
+        else state.logTimestamp.isoformat(),
     )
-    loki_context = subgraph_state.get("loki_context", None) #TODO: update additionalContextFromLoki to this field name
-    cheat_sheet_context = f"Context from cheat sheet:\n{subgraph_state["cheat_sheet_context"]}"
+    subgraph_state = await more_context_agent_graph.ainvoke(
+        ContextAgentState(
+            log_summary=log_summary,
+            log_entry=log_entry,
+            expert_classification=state.expertClassification,
+        )
+    )
+    context_agent_state = ContextAgentState.model_validate(subgraph_state)
+    loki_context = context_agent_state.loki_context
+    cheat_sheet_context = (
+        f"Context from cheat sheet:\n{context_agent_state.cheat_sheet_context}"
+    )
     context = (
         f"Context logs from loki:\n{loki_context}\n\n{cheat_sheet_context}"
         if loki_context
@@ -114,10 +125,6 @@ def build_graph():
     builder.add_node(suggest_step_by_step_solution_node)
     builder.add_node(router_step_by_step_solution_node)
     builder.add_node(get_more_context_node)
-
-    # Add Loki query nodes
-    builder.add_node(identify_missing_log_data_node)
-    builder.add_node(loki_execute_query_node)
 
     return builder.compile()
 
