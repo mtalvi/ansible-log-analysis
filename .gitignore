@@ -206,10 +206,9 @@ data/logs/
 data/*.json
 
 # RAG System - Vector Database and Embeddings
+# Only ignore index and pkl files under data directory
 data/*.index
 data/*.pkl
-*.index
-*.pkl
 # Alternative: uncomment to ignore entire data directory (except knowledge_base)
 # data/
 # !data/knowledge_base/
