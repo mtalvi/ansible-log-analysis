@@ -3,8 +3,7 @@ networks:
 
 services:
   loki-mcp-server:
-    # image: loki-mcp-server:latest
-    image: loki-mcp:v0.2.0-direction
+    image: quay.io/yelias/loki-mcp:query-direction-support
     container_name: loki-mcp-server
     ports:
       - "8080:8080"
