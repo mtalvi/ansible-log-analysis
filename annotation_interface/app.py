@@ -18,7 +18,9 @@ class DataAnnotationApp:
         self.feedback_file = os.path.join(feedback_dir, "annotation.json")
         self.current_index = 0
         self.data = []
+        self.all_data = []  # Store all data before cluster filtering
         self.feedback_data = []
+        self.show_cluster_sample = False  # Toggle state for cluster sampling
 
         # Get table name from environment variable
         self.table_name = os.getenv("ALERTS_TABLE_NAME", "grafanaalert")
@@ -47,6 +49,7 @@ class DataAnnotationApp:
                         "logMessage",
                         "logSummary", 
                         "stepByStepSolution",
+                        "logCluster",
                         labels
                     FROM {self.table_name}
                     ORDER BY id
@@ -56,12 +59,13 @@ class DataAnnotationApp:
                 rows = result.fetchall()
 
                 # Convert to the expected data format
-                self.data = []
+                self.all_data = []
                 for row in rows:
                     # Parse labels JSON if it exists
                     labels = row.labels if hasattr(row, "labels") and row.labels else {}
 
                     data_entry = {
+                        "id": row.id,
                         "filename": labels.get("filename", "unknown")
                         if isinstance(labels, dict)
                         else "unknown",
@@ -72,14 +76,21 @@ class DataAnnotationApp:
                         "summary": row.logSummary or "No summary available",
                         "step_by_step_solution": row.stepByStepSolution
                         or "No solution available",
+                        "log_cluster": row.logCluster
+                        if hasattr(row, "logCluster")
+                        else None,
                     }
-                    self.data.append(data_entry)
+                    self.all_data.append(data_entry)
+
+                # Initialize data with all entries
+                self.data = self.all_data.copy()
 
                 print(
-                    f"Loaded {len(self.data)} data entries from table '{self.table_name}'"
+                    f"Loaded {len(self.all_data)} data entries from table '{self.table_name}'"
                 )
         except Exception as e:
             print(f"Error loading data from database table '{self.table_name}': {e}")
+            self.all_data = []
             self.data = []
 
     def load_feedback(self):
@@ -93,6 +104,38 @@ class DataAnnotationApp:
         except Exception as e:
             print(f"Error loading feedback: {e}")
             self.feedback_data = []
+
+    def toggle_cluster_sampling(
+        self, show_sample: bool
+    ) -> Tuple[str, str, str, str, str, str]:
+        """Toggle between showing all rows or one sample per cluster."""
+        self.show_cluster_sample = show_sample
+
+        if show_sample:
+            # Group by cluster and take one sample from each
+            cluster_samples = {}
+            for entry in self.all_data:
+                cluster_id = entry.get("log_cluster")
+                # If no cluster, treat each entry as its own cluster
+                if cluster_id is None:
+                    cluster_id = f"_no_cluster_{entry.get('id')}"
+
+                # Keep only the first entry from each cluster
+                if cluster_id not in cluster_samples:
+                    cluster_samples[cluster_id] = entry
+
+            self.data = list(cluster_samples.values())
+            print(
+                f"Cluster sampling enabled: Showing {len(self.data)} samples from {len(self.all_data)} total entries"
+            )
+        else:
+            # Show all data
+            self.data = self.all_data.copy()
+            print(f"Cluster sampling disabled: Showing all {len(self.data)} entries")
+
+        # Reset to first entry
+        self.current_index = 0
+        return self.get_current_entry()
 
     def save_feedback(self, feedback: str) -> str:
         """Save feedback for current data entry."""
@@ -108,9 +151,7 @@ class DataAnnotationApp:
             "filename": current_entry.get("filename", ""),
             "line_number": current_entry.get("line_number", ""),
             "feedback": feedback,
-            "summary": current_entry.get("summary", "")[:100] + "..."
-            if len(current_entry.get("summary", "")) > 100
-            else current_entry.get("summary", ""),
+            "line_content": current_entry.get("line_content", "No line context"),
         }
 
         # Remove any existing feedback for this entry
@@ -216,7 +257,7 @@ class DataAnnotationApp:
                     <tr>
                         <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">Index</th>
                         <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">File</th>
-                        <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">Summary</th>
+                        <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">Log</th>
                         <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">Feedback</th>
                         <th style="padding: 8px; border: 1px solid #475569; color: #f1f5f9; font-weight: 600;">Time</th>
                     </tr>
@@ -238,7 +279,7 @@ class DataAnnotationApp:
                 <tr style="border-bottom: 1px solid #475569; background-color: #1e293b;" onmouseover="this.style.backgroundColor='#334155'" onmouseout="this.style.backgroundColor='#1e293b'">
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{feedback["index"] + 1}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["filename"]}">{feedback["filename"][:20]}...</td>
-                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["summary"]}">{feedback["summary"]}</td>
+                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["line_content"]}">{feedback["line_content"]}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["feedback"]}">{feedback_text}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{timestamp}</td>
                 </tr>
@@ -288,6 +329,66 @@ def create_app():
         color: #e2e8f0 !important;
         line-height: 1.6;
         margin-top: 12px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .solution-box h1, .solution-box h2, .solution-box h3, .solution-box h4 {
+        color: #f1f5f9 !important;
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+    .solution-box h1 {
+        font-size: 1.5em;
+        border-bottom: 2px solid #475569;
+        padding-bottom: 8px;
+    }
+    .solution-box h2 {
+        font-size: 1.3em;
+        border-bottom: 1px solid #475569;
+        padding-bottom: 6px;
+    }
+    .solution-box h3 {
+        font-size: 1.1em;
+    }
+    .solution-box code {
+        background-color: #0f172a !important;
+        color: #38bdf8 !important;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .solution-box pre {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 6px;
+        padding: 12px;
+        overflow-x: auto;
+    }
+    .solution-box pre code {
+        background-color: transparent !important;
+        padding: 0;
+    }
+    .solution-box ul, .solution-box ol {
+        margin-left: 20px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+    .solution-box li {
+        margin-bottom: 4px;
+    }
+    .solution-box blockquote {
+        border-left: 4px solid #475569;
+        padding-left: 16px;
+        margin-left: 0;
+        color: #cbd5e1;
+        font-style: italic;
+    }
+    .solution-box a {
+        color: #60a5fa !important;
+        text-decoration: underline;
+    }
+    .solution-box a:hover {
+        color: #93c5fd !important;
     }
     .feedback-box {
         min-height: 200px;
@@ -351,6 +452,14 @@ def create_app():
             "Annotate pipeline outputs with feedback on failure modes and solution quality."
         )
 
+        # Cluster sampling toggle
+        with gr.Row():
+            cluster_sample_toggle = gr.Checkbox(
+                label="Show one sample per cluster (reduces duplicates)",
+                value=False,
+                interactive=True,
+            )
+
         # Navigation controls
         with gr.Row():
             with gr.Column(scale=1):
@@ -397,11 +506,11 @@ def create_app():
                     interactive=False,
                 )
 
-                step_by_step = gr.Textbox(
+                step_by_step = gr.Markdown(
                     label="Step-by-Step Solution",
-                    lines=15,
                     elem_classes="solution-box",
-                    interactive=False,
+                    # lines=15,
+                    # interactive=False,
                 )
 
             # Right column - Feedback
@@ -443,6 +552,9 @@ def create_app():
             if index is not None:
                 return app.go_to_index(int(index) - 1)  # Convert to 0-based index
             return app.get_current_entry()
+
+        def handle_cluster_toggle(show_sample):
+            return app.toggle_cluster_sampling(show_sample)
 
         # Bind events
         interface.load(
@@ -498,6 +610,19 @@ def create_app():
             handle_save_feedback,
             inputs=[feedback_text],
             outputs=[feedback_status, feedback_table],
+        )
+
+        cluster_sample_toggle.change(
+            handle_cluster_toggle,
+            inputs=[cluster_sample_toggle],
+            outputs=[
+                error_log,
+                summary,
+                step_by_step,
+                feedback_text,
+                nav_info,
+                feedback_table,
+            ],
         )
 
     return interface
