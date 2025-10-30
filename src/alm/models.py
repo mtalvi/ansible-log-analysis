@@ -18,8 +18,8 @@ class GrafanaAlert(SQLModel, table=True):
         default_factory=datetime.now, description="Timestamp of the log message"
     )
     logMessage: str = Field(description="Original log message that triggered the alert")
-    logSummary: Optional[str] = Field(
-        default=None, description="Summary of the log message"
+    logSummary: str = Field(
+        default="No summary available", description="Summary of the log message"
     )
     expertClassification: Optional[str] = Field(
         default=None, description="Classification of the log message"
@@ -36,15 +36,12 @@ class GrafanaAlert(SQLModel, table=True):
     contextForStepByStepSolution: Optional[str] = Field(
         default=None, description="Context for the step by step solution"
     )
-    labels: Dict[str, str] = Field(
+    log_labels: Dict[str, str] = Field(
         default={},
-        description="Labels used for grouping alerts",
+        description="Loki log metadata, dict representation of LogLabels",
         sa_column=Column(JSON),
     )
-
-    # # Loki-specific fields that might be extracted from log content
     # logLevel: Optional[str] = None  # Log level from Loki logs (info, warn, error, etc.)
-    # # logStream: Optional[str] = None  # Loki log stream identifier
     # logSource: Optional[str] = None  # Source of the log (e.g., service name, pod name)
 
     # log_type: Optional[str] = None

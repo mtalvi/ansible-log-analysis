@@ -36,6 +36,7 @@ dependencies = [
     # Observability / tracing
     "arize-phoenix-otel>=0.13.1",
     "openinference-instrumentation-langchain>=0.1.33",
+    "python-dateutil>=2.8.0",
 ]
 
 [dependency-groups]

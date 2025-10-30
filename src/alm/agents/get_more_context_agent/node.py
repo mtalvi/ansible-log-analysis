@@ -23,7 +23,9 @@ async def get_cheat_sheet_context(log_summary: str):
     return ""
 
 
-async def loki_router(log_summary: str, cheat_sheet_context: str, llm: ChatOpenAI):
+async def loki_router(
+    log_summary: str, cheat_sheet_context: str, llm: ChatOpenAI
+) -> LokiRouterSchema:
     llm_structured = llm.with_structured_output(LokiRouterSchema)
     output = await llm_structured.ainvoke(
         [
@@ -39,4 +41,4 @@ async def loki_router(log_summary: str, cheat_sheet_context: str, llm: ChatOpenA
             },
         ]
     )
-    return output.reasoning, output.classification
+    return LokiRouterSchema.model_validate(output)

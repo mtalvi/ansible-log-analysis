@@ -1,3 +1,5 @@
+# from alm.agents.loki_agent.graph import loki_agent_graph
+# from alm.agents.loki_agent.state import LokiAgentState
 from src.alm.llm import get_llm
 
 from src.alm.agents.get_more_context_agent.node import (
@@ -19,21 +21,33 @@ async def cheat_sheet_context_node(state: ContextAgentState):
 
 
 async def loki_router_node(state: ContextAgentState):
-    reasoning, classification = await loki_router(
+    loki_router_result = await loki_router(
         state.log_summary, state.cheat_sheet_context, llm
     )
     return Command(
         goto="loki_sub_agent"
-        if classification == "need_more_context_from_loki_db"
+        if loki_router_result.classification == "need_more_context_from_loki_db"
         else END,
-        update={"reasoning": reasoning, "classification": classification},
+        update={"loki_router_result": loki_router_result.model_dump()},
     )
 
 
 async def loki_sub_agent(state: ContextAgentState):
-    # context = await loki_agent.ainvoke({}) # TODO choose the input for the agent NOTE you have reasoning why we need loki, can be used or removed.
-    context = None  # TODO change me
-    return Command(goto=END, update={"loki_context": context})
+    # TODO: uncomment this when loki deployed
+    # loki_state = LokiAgentState(
+    #     log_entry=state.log_entry,
+    #     log_summary=state.log_summary,
+    #     expert_classification=state.expert_classification,
+    #     cheat_sheet_context=state.cheat_sheet_context,
+    #     loki_router_result=state.loki_router_result,
+    # )
+    # loki_result = await loki_agent_graph.ainvoke(loki_state)
+    # loki_result_state = LokiAgentState.model_validate(loki_result)
+    return Command(
+        goto=END,
+        # update={"loki_context": loki_result_state.additional_context_from_loki},
+        update={"loki_context": ""},
+    )
 
 
 def build_graph():

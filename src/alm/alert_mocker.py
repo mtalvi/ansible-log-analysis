@@ -65,9 +65,9 @@ def grafana_alert_mock(path: str) -> Optional[GrafanaAlert]:
         ),  # Full matched text as the log message
         # logSummary=groups.get('logsummary', ''),
         # expertClassification=groups.get('expertClassification', ''),
-        labels={
+        log_labels={
             "host": groups.get("host", "").strip(),
-            "file_name": Path(path).name,
+            "filename": Path(path).name,
             # 'log_source': groups.get('host', '').strip(),
             # "task_name": groups.get("task_name", "").strip(),
         },
