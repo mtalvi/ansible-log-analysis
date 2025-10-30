@@ -107,7 +107,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -171,7 +171,7 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str, str]:
+    def get_current_entry(self) -> Tuple[str, str, str, str, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
@@ -180,7 +180,6 @@ class DataAnnotationApp:
                 "No data",
                 "",
                 "0 / 0",
-                self.get_feedback_table(),
             )
 
         entry = self.data[self.current_index]
@@ -219,10 +218,9 @@ class DataAnnotationApp:
             step_by_step,
             existing_feedback,
             nav_info,
-            self.get_feedback_table(),
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str]:
+    def navigate(self, direction: int) -> Tuple[str, str, str, str, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -232,7 +230,7 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str]:
+    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -529,10 +527,6 @@ def create_app():
                 save_feedback_btn = gr.Button("Save Feedback", variant="primary")
                 feedback_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
-        # Feedback table at the bottom
-        with gr.Row():
-            feedback_table = gr.HTML(label="Feedback History", value="Loading...")
-
         # Initialize the interface
         def init_interface():
             return app.get_current_entry()
@@ -540,7 +534,7 @@ def create_app():
         # Event handlers
         def handle_save_feedback(feedback):
             status = app.save_feedback(feedback)
-            return status, app.get_feedback_table()
+            return status
 
         def handle_navigate_prev():
             return app.navigate(-1)
@@ -565,7 +559,6 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 nav_info,
-                feedback_table,
             ],
         )
 
@@ -577,7 +570,6 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 nav_info,
-                feedback_table,
             ],
         )
 
@@ -589,7 +581,6 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 nav_info,
-                feedback_table,
             ],
         )
 
@@ -602,14 +593,13 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 nav_info,
-                feedback_table,
             ],
         )
 
         save_feedback_btn.click(
             handle_save_feedback,
             inputs=[feedback_text],
-            outputs=[feedback_status, feedback_table],
+            outputs=[feedback_status],
         )
 
         cluster_sample_toggle.change(
@@ -621,7 +611,6 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 nav_info,
-                feedback_table,
             ],
         )
 
