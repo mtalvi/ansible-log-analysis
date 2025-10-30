@@ -52,3 +52,9 @@ dev = [
     "rich>=14.1.0",
     "ruff>=0.12.8",
 ]
+
+[tool.ruff]
+extend-exclude = [
+    "notebooks/",
+    "evals/",
+]
