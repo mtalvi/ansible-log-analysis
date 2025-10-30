@@ -1,0 +1,25 @@
+name: Check Formatting and Linting
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+
+jobs:
+  lint-and-format:
+    name: Check Formatting and Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run Ruff Linter and formatter
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: 'check'
+
+      - name: Run Ruff Formatter
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: 'format --check'
