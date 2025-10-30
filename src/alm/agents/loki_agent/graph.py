@@ -104,7 +104,7 @@ async def loki_execute_query_node(
                         number_of_logs=0,
                     ),
                     raw_output=str(e),
-                    intermediate_steps=[],
+                    tool_messages=[],
                 ).model_dump()
             },
         )

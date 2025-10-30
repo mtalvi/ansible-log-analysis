@@ -8,6 +8,8 @@ from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 from collections import defaultdict
+from langchain_core.messages import ToolMessage
+
 from .inputs import LogLevel
 
 
@@ -77,8 +79,8 @@ class LokiAgentOutput(BaseModel):
     )
     agent_result: LogToolOutput = Field(description="Result of the agent")
     raw_output: str | Any = Field(description="Raw output of the agent")
-    intermediate_steps: List = Field(
-        default_factory=list, description="Intermediate steps of the agent"
+    tool_messages: List[ToolMessage] = Field(
+        default_factory=list, description="Tool messages from the agent execution"
     )
 
 
