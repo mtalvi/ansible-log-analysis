@@ -1,5 +1,5 @@
 from alm.agents.get_more_context_agent.state import ContextAgentState
-from alm.agents.loki_agent.schemas import LogEntry, LogStream
+from alm.agents.loki_agent.schemas import LogEntry, LogLabels
 from src.alm.llm import get_llm
 from src.alm.models import GrafanaAlert
 from src.alm.agents.node import (
@@ -80,10 +80,10 @@ async def get_more_context_node(
     state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
-    log_stream = LogStream.model_validate(state.logStream)
+    log_labels = LogLabels.model_validate(state.log_labels)
     log_entry = LogEntry(
         message=state.logMessage,
-        stream=log_stream,
+        log_labels=log_labels,
         timestamp="Unknown timestamp"
         if state.logTimestamp is None
         else state.logTimestamp.isoformat(),

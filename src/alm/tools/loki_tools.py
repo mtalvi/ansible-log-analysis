@@ -20,7 +20,7 @@ from alm.agents.loki_agent.schemas import (
     SearchTextSchema,
     LogLinesAboveSchema,
     LogEntry,
-    LogStream,
+    LogLabels,
     LogToolOutput,
     ToolStatus,
 )
@@ -115,7 +115,7 @@ async def execute_loki_query(
                             logs.append(
                                 LogEntry(
                                     timestamp=entry[0],
-                                    stream=stream_labels,
+                                    log_labels=stream_labels,
                                     message=entry[1],
                                 )
                             )
@@ -135,7 +135,7 @@ async def execute_loki_query(
                 # If not JSON, treat as plain text result
                 return LogToolOutput(
                     status=ToolStatus.SUCCESS,
-                    logs=[LogEntry(stream=LogStream(), message=result)],
+                    logs=[LogEntry(log_labels=LogLabels(), message=result)],
                     number_of_logs=1,
                     query=query,
                 ).model_dump_json(indent=2)
@@ -144,7 +144,7 @@ async def execute_loki_query(
             print(f"Non-JSON result: {result}")
             return LogToolOutput(
                 status=ToolStatus.SUCCESS,
-                logs=[LogEntry(stream=LogStream(), message=str(result))],
+                logs=[LogEntry(log_labels=LogLabels(), message=str(result))],
                 number_of_logs=1,
                 query=query,
             ).model_dump_json(indent=2)

@@ -36,15 +36,10 @@ class GrafanaAlert(SQLModel, table=True):
     contextForStepByStepSolution: Optional[str] = Field(
         default=None, description="Context for the step by step solution"
     )
-    labels: Dict[str, str] = Field(
+    log_labels: Dict[str, str] = Field(
         default={},
-        description="Labels used for grouping alerts",
+        description="Loki log metadata, dict representation of LogLabels",
         sa_column=Column(JSON),
-    )
-
-    # Loki-specific fields that might be extracted from log content
-    logStream: Optional[Dict[str, str]] = Field(
-        default=None, description="Loki log stream identifier", sa_column=Column(JSON)
     )
     # logLevel: Optional[str] = None  # Log level from Loki logs (info, warn, error, etc.)
     # logSource: Optional[str] = None  # Source of the log (e.g., service name, pod name)

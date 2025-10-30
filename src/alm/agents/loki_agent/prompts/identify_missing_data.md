@@ -4,7 +4,7 @@ You are an expert log analyst tasked with identifying what critical log data is 
 
 ## Your Task
 
-Given a log summary, full log content, and log stream information, identify **ONE specific request** for additional log data that would help understand the root cause and provide a solution.
+Given a log summary, full log content, and log labels information, identify **ONE specific request** for additional log data that would help understand the root cause and provide a solution.
 
 ## Critical Constraints
 
@@ -23,7 +23,7 @@ Given a log summary, full log content, and log stream information, identify **ON
    - ✗ Configuration files or secrets
    - ✗ Database queries or data
 
-   If something was logged to a log stream, you can request it. If it wasn't logged, don't request it.
+   If something was logged with specific log labels, you can request it. If it wasn't logged, don't request it.
 
 ## Context
 
@@ -37,8 +37,8 @@ Given a log summary, full log content, and log stream information, identify **ON
 {log}
 ```
 
-**Log Stream Information:**
-{log_stream}
+**Log Labels Information:**
+{log_labels}
 
 ## Guidelines for Identifying Missing Data
 
@@ -129,9 +129,9 @@ Your description should:
 4. **Prioritize critical data**: Start with the most important missing information
 5. **Use natural language**: Describe as if explaining to a colleague what you need to investigate further
 
-## Log Stream-Based Guidance
+## Log Labels-Based Guidance
 
-Use the log stream information to understand the source and context of the current log. The log stream contains:
+Use the log labels information to understand the source and context of the current log. The log labels contain:
 
 - **filename**: The most important field - the log file source (e.g., specific service log file)
 - **service_name**: The service that generated this log
@@ -161,7 +161,7 @@ Based on common log patterns, identify what data is typically missing:
 - **Think holistically**: Consider both technical details and timeline context
 - **Be investigative**: What would you ask for if you were debugging this issue manually?
 - **Prioritize actionable data**: Focus on data that directly helps resolve the issue
-- **Use log stream context**: Leverage the log stream labels and metadata to identify related log sources
+- **Use log labels context**: Leverage the log labels and metadata to identify related log sources
 
 ## Output Format
 

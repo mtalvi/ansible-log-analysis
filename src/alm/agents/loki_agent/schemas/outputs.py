@@ -16,8 +16,8 @@ class ToolStatus(str, Enum):
     ERROR = "error"
 
 
-class LogStream(BaseModel):
-    """Represents a single log stream from Loki"""
+class LogLabels(BaseModel):
+    """Metadata labels for a single log entry from Loki"""
 
     detected_level: Optional[LogLevel] = Field(
         default=None, description="Detected level of the log"
@@ -35,7 +35,7 @@ class LogEntry(BaseModel):
     timestamp: str = Field(
         default="Unknown timestamp", description="Timestamp of the log"
     )
-    stream: LogStream = Field(description="Log stream of the log")
+    log_labels: LogLabels = Field(description="Log labels of the log")
     message: str = Field(description="Message of the log")
 
 
@@ -116,37 +116,37 @@ def format_timestamp(timestamp_str: str) -> str:
 def build_log_context(logs: List["LogEntry"]) -> str:
     """
     Build a context for the step by step solution from the log entries.
-    Groups logs by stream and sorts them by timestamp.
+    Groups logs by labels and sorts them by timestamp.
     """
     if not logs:
         print("WARNING: No logs found to build context from.")
         return ""
 
-    # Group logs by stream
-    logs_by_stream = defaultdict(list)
+    # Group logs by labels
+    logs_by_labels = defaultdict(list)
     for log in logs:
-        # Convert stream dict to a string key for grouping
-        stream_key = ", ".join(
+        # Convert labels dict to a string key for grouping
+        labels_key = ", ".join(
             [
                 f"{k}={v}"
-                for k, v in sorted(log.stream.model_dump(exclude_none=True).items())
+                for k, v in sorted(log.log_labels.model_dump(exclude_none=True).items())
             ]
         )
-        logs_by_stream[stream_key].append(log)
+        logs_by_labels[labels_key].append(log)
 
     # Build context with grouped and sorted logs
     context_parts = []
 
-    for stream_key, stream_logs in sorted(logs_by_stream.items()):
-        # Sort logs within each stream by timestamp
-        sorted_logs = sorted(stream_logs, key=lambda x: parse_timestamp(x.timestamp))
+    for labels_key, label_logs in sorted(logs_by_labels.items()):
+        # Sort logs within each label group by timestamp
+        sorted_logs = sorted(label_logs, key=lambda x: parse_timestamp(x.timestamp))
 
-        # Add stream header
+        # Add labels header
         context_parts.append(f"\n{'=' * 80}")
-        context_parts.append(f"Stream: {stream_key}")
+        context_parts.append(f"Labels: {labels_key}")
         context_parts.append(f"{'=' * 80}")
 
-        # Add logs for this stream
+        # Add logs for this label group
         for log in sorted_logs:
             readable_timestamp = format_timestamp(log.timestamp)
             context_parts.append(f"{readable_timestamp} - {log.message}")

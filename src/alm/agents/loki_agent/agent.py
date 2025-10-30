@@ -51,30 +51,30 @@ class LokiQueryAgent:
    CRITICAL INSTRUCTIONS FOR THIS TOOL:
    - The "Log Message" field may contain complex JSON with special characters - DO NOT let this confuse you
    - ALWAYS provide BOTH required parameters: log_message AND file_name, and the lines_above parameter if needed
-   - If the log message is very long or contains JSON/special chars, focus on extracting file_name from Log Stream first
-   - The file_name is ALWAYS in the Log Stream dictionary under the 'filename' key - NEVER skip it
+   - If the log message is very long or contains JSON/special chars, focus on extracting file_name from Log Labels first
+   - The file_name is ALWAYS in the Log Labels dictionary under the 'filename' key - NEVER skip it
 
    Parameter mapping:
    - log_message: Extract the FIRST LINE from "Log Message" field (NOT from Log Summary)
-   - file_name: Extract the 'filename' value from the "Log Stream" dictionary (REQUIRED - always provide this)
+   - file_name: Extract the 'filename' value from the "Log Labels" dictionary (REQUIRED - always provide this)
    - lines_above: Number of lines to retrieve
 
    EXAMPLE - How to extract parameters correctly:
    Input context:
      Log Message: fatal: [host.example.com]: FAILED! => {{"msg": "Request failed"}}
      Log Summary: Request failed
-     Log Stream: {{'detected_level': 'error', 'filename': '/path/to/app.log', 'job': 'example_job', 'service_name': 'example_service'}}
+     Log Labels: {{'detected_level': 'error', 'filename': '/path/to/app.log', 'job': 'example_job', 'service_name': 'example_service'}}
 
    CORRECT tool call (BOTH required parameters provided):
      log_message: "fatal: [host.example.com]: FAILED! => {{"msg": "Request failed"}}"  (from Log Message field)
-     file_name: "/path/to/app.log"  (from Log Stream 'filename' key - REQUIRED!)
+     file_name: "/path/to/app.log"  (from Log Labels 'filename' key - REQUIRED!)
      lines_above: 10 (default)
 
 ## Understanding Context Fields:
 When context is provided in the input, use it to help choose the right tool and extract parameters:
 - **Log Summary**: High-level summary to help you understand what the logs are about and choose the appropriate tool (do NOT use this for log_message parameter)
 - **Log Message**: The actual log text - for get_log_lines_above, extract the first line from this field
-- **Log Stream**: Metadata dictionary with keys like 'filename', 'detected_level', 'job', etc. - extract the filename value when needed
+- **Log Labels**: Metadata dictionary with keys like 'filename', 'detected_level', 'job', etc. - extract the filename value when needed
 - **Expert Classification**: Category classification to help understand the log type
 
 ## Your Process:

@@ -16,7 +16,7 @@ from alm.agents.loki_agent.schemas.inputs import (
 
 from alm.agents.loki_agent.schemas.outputs import (
     ToolStatus,
-    LogStream,
+    LogLabels,
     LogEntry,
     LogToolOutput,
     LokiAgentOutput,
@@ -36,7 +36,7 @@ __all__ = [
     "DEFAULT_LINE_ABOVE",
     # Outputs
     "ToolStatus",
-    "LogStream",
+    "LogLabels",
     "LogEntry",
     "LogToolOutput",
     "LokiAgentOutput",
