@@ -1,3 +1,5 @@
+from alm.agents.get_more_context_agent.state import ContextAgentState
+from alm.agents.loki_agent.schemas import LogEntry, LogLabels
 from src.alm.llm import get_llm
 from src.alm.models import GrafanaAlert
 from src.alm.agents.node import (
@@ -12,6 +14,7 @@ from langgraph.types import Command
 from src.alm.agents.get_more_context_agent.graph import more_context_agent_graph
 
 from typing import Literal
+
 
 llm = get_llm()
 
@@ -77,14 +80,28 @@ async def get_more_context_node(
     state: GrafanaAlert,
 ) -> Command[Literal[END]]:
     log_summary = state.logSummary
-    log = state.logMessage
-    subgraph_state = await more_context_agent_graph.ainvoke(
-        {"log_summary": log_summary, "log": log}
+    log_labels = LogLabels.model_validate(state.log_labels)
+    log_entry = LogEntry(
+        message=state.logMessage,
+        log_labels=log_labels,
+        timestamp="Unknown timestamp"
+        if state.logTimestamp is None
+        else state.logTimestamp.isoformat(),
     )
-    loki_context = subgraph_state.get("loki_context", None)
-    cheat_sheet_context = subgraph_state["cheat_sheet_context"]
+    subgraph_state = await more_context_agent_graph.ainvoke(
+        ContextAgentState(
+            log_summary=log_summary,
+            log_entry=log_entry,
+            expert_classification=state.expertClassification,
+        )
+    )
+    context_agent_state = ContextAgentState.model_validate(subgraph_state)
+    loki_context = context_agent_state.loki_context
+    cheat_sheet_context = (
+        f"Context from cheat sheet:\n{context_agent_state.cheat_sheet_context}"
+    )
     context = (
-        f"{loki_context}\n\n{cheat_sheet_context}"
+        f"Context logs from loki:\n{loki_context}\n\n{cheat_sheet_context}"
         if loki_context
         else cheat_sheet_context
     )

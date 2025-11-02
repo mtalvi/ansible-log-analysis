@@ -16,6 +16,11 @@ if not API_KEY or not BASE_URL:
     )
 
 
+# from langchain.globals import set_debug
+
+# set_debug(True)  # Enables LangChain debug mode globally
+
+
 def get_llm(model: str = MODEL, temperature: float = TEMPERATURE):
     llm = ChatOpenAI(
         api_key=API_KEY,
