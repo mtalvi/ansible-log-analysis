@@ -196,7 +196,7 @@ For example `data/logs/failed/example.txt`
 
 #### Prerequisites
 - Docker and Docker Compose
-- `uv` package manager with Python 3.12+
+- `uv 0.9.x` package manager with Python 3.12+
 - Make (for running deployment commands)
 - Make sure you have added the mock data as described in the [### Mock Data (Temporary for Development)](#mock-data-temporary-for-development) section.
 

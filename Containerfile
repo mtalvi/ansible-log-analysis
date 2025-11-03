@@ -8,7 +8,7 @@ USER root
 # Install uv pointing to the uv image and coping from there
 # /uv and /uvx are the source files copied from the uv image
 # /bin is the destination
-COPY --from=ghcr.io/astral-sh/uv:0.8.12 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /bin/
 
 WORKDIR /app
 
