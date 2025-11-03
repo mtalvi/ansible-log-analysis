@@ -1,15 +1,3 @@
-# Images
-backendImage: quay.io/rh-ai-quickstart/alm-backend
-uiImage: quay.io/rh-ai-quickstart/alm-ui
-annotationInterfaceImage: quay.io/rh-ai-quickstart/alm-annotation-interface
-clusteringImage: quay.io/rh-ai-quickstart/alm-clustering
-
-# Tags
-backendTag: latest
-uiTag: latest
-annotationInterfaceTag: latest
-clusteringTag: latest
-
 minio:
   secret:
     user: minio_alm_user
