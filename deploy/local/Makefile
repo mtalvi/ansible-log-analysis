@@ -43,7 +43,7 @@ phoenix: ## 📊 Start Phoenix
 
 backend: ## ⚙️ Start Backend (FastAPI)
 	@echo "   Starting Backend API..."
-	@cd ../.. && uv run uvicorn src.alm.main_fastapi:app --reload &
+	@cd ../.. && uv run uvicorn alm.main_fastapi:app --reload &
 
 ui: ## 🖥️ Start UI (Gradio)
 	@echo "   Starting UI Interface..."

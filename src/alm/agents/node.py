@@ -5,14 +5,14 @@ from sklearn.cluster import DBSCAN, MeanShift, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_distances
 import joblib
 from langchain_openai import ChatOpenAI
-from src.alm.agents.output_scheme import (
+from alm.agents.output_scheme import (
     SummarySchema,
     ClassifySchema,
     SuggestStepByStepSolutionSchema,
     RouterStepByStepSolutionSchema,
 )
 import numpy as np
-from src.alm.utils.minio import upload_model_to_minio
+from alm.utils.minio import upload_model_to_minio
 import requests
 
 # Load the user message (prompt) from the markdown file

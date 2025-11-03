@@ -14,8 +14,14 @@ WORKDIR /app
 COPY pyproject.toml ./
 # COPY uv.lock ./
 
-# Install dependencies
-RUN uv sync --no-dev
+# Copy source code and data
+COPY src/ ./src/
+COPY data/logs/failed/ ./data/logs/failed/
+COPY init_pipeline.py .
+
+# Install package in editable mode first, then sync dependencies to match the lock file
+RUN uv pip install -e . && uv sync --no-dev
+
 ENV VIRTUAL_ENV=.venv
 ENV PATH=".venv/bin:$PATH"
 
@@ -26,13 +32,8 @@ RUN  mkdir -p /hf_cache && \
     chmod -R 777 /hf_cache && \
     chmod -R +r .
 
-# Copy source code
-COPY src/ ./src/
-COPY data/logs/failed/ ./data/logs/failed/
-COPY init_pipeline.py .
-
 # Expose port
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["uvicorn", "src.alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 
+ENTRYPOINT ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 

@@ -210,7 +210,7 @@ Follow these steps to set up and run the Ansible Log Monitor on your local devel
 git clone <repository-url>
 cd ansible-logs
 
-# Install Python dependencies using uv
+# Install dependencies and alm package (install alm in editable mode by default)
 uv sync
 ```
 
