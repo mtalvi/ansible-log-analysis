@@ -1,4 +1,7 @@
-FROM registry.access.redhat.com/ubi8/python-312
+# ============================================================================
+# Builder Stage - Install dependencies
+# ============================================================================
+FROM registry.access.redhat.com/ubi8/python-312 AS builder
 
 USER root
 
@@ -7,33 +10,52 @@ USER root
 # /bin is the destination
 COPY --from=ghcr.io/astral-sh/uv:0.8.12 /uv /uvx /bin/
 
-# Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml ./
-# COPY uv.lock ./
+# Copy dependency files first (for optimal layer caching)
+COPY pyproject.toml uv.lock ./
 
-# Copy source code and data
+# Install dependencies only (not the project itself yet)
+# Uses BuildKit cache mount for persistent package caching across builds
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+# Copy source code and install project in production mode (not editable)
 COPY src/ ./src/
 COPY data/logs/failed/ ./data/logs/failed/
-COPY init_pipeline.py .
+COPY init_pipeline.py ./
 
-# Install package in editable mode first, then sync dependencies to match the lock file
-RUN uv pip install -e . && uv sync --no-dev
+# For debug
+# COPY examples/ ./examples/
 
-ENV VIRTUAL_ENV=.venv
-ENV PATH=".venv/bin:$PATH"
+# Install the project itself (production mode, not editable)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-editable
 
-# Set Hugging Face cache directory
-ENV HF_HOME=/hf_cache
+# ============================================================================
+# Runtime Stage
+# ============================================================================
+FROM registry.access.redhat.com/ubi8/python-312
 
-RUN  mkdir -p /hf_cache && \
-    chmod -R 777 /hf_cache && \
-    chmod -R +r .
+USER root
+
+WORKDIR /app
+
+# Copy installed dependencies and project from builder
+COPY --from=builder /app /app
+
+# Set virtual environment and Hugging Face cache
+ENV VIRTUAL_ENV=.venv \
+    PATH="/app/.venv/bin:$PATH" \
+    HF_HOME=/hf_cache
+
+# In OpenShift, random UID is always group 0, grant group 0 access to the directories
+RUN mkdir -p /hf_cache && \
+    chgrp -R 0 /app /hf_cache && \
+    chmod -R g=u /app /hf_cache
 
 # Expose port
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-ENTRYPOINT ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"] 
+ENTRYPOINT ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]
