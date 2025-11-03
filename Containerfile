@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy source code and install project in production mode (not editable)
+COPY README.md ./
 COPY src/ ./src/
 COPY data/logs/failed/ ./data/logs/failed/
 COPY init_pipeline.py ./
