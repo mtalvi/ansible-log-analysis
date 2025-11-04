@@ -13,8 +13,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies only (not the project itself yet)
+# Set longer timeout for large package downloads (e.g., nvidia-cudnn-cu12)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    UV_HTTP_TIMEOUT=600 uv sync --frozen --no-install-project --no-dev
 
 # Copy source code and install project in production mode
 COPY README.md ./
@@ -22,7 +23,7 @@ COPY src/ ./src/
 
 # Install the project itself (production mode, not editable)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
+    UV_HTTP_TIMEOUT=600 uv sync --frozen --no-dev --no-editable
 
 # ============================================================================
 # Runtime Stage
