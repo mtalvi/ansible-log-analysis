@@ -7,7 +7,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
-from src.alm.utils.phoenix import register_phoenix
+from alm.utils.phoenix import register_phoenix
 
 # Load environment variables before Phoenix registration
 load_dotenv()

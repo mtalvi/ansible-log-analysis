@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from src.alm.models import GrafanaAlert
-from src.alm.patterns.ingestion import (
+from alm.models import GrafanaAlert
+from alm.patterns.ingestion import (
     TESTING_LOG_ERROR,
     TESTING_LOG_FATAL,
     TESTING_LOG_FAILED,

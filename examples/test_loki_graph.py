@@ -9,11 +9,6 @@ This example demonstrates the get_more_context_agent flow:
 """
 
 import asyncio
-import sys
-import os
-
-# Add src to path to handle imports correctly
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from alm.agents.get_more_context_agent.graph import more_context_agent_graph
 from alm.agents.get_more_context_agent.state import ContextAgentState

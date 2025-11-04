@@ -1,20 +1,20 @@
 import asyncio
 import time
 
-from src.alm.database import get_session
-from src.alm.alert_mocker import ingest_alerts
-from src.alm.llm import get_llm
+from alm.database import get_session
+from alm.alert_mocker import ingest_alerts
+from alm.llm import get_llm
 
-from src.alm.agents.node import (
+from alm.agents.node import (
     train_embed_and_cluster_logs,
     summarize_log,
     classify_log,
     suggest_step_by_step_solution,
 )
-from src.alm.models import GrafanaAlert
+from alm.models import GrafanaAlert
 from sqlmodel import select
 
-from src.alm.database import init_tables
+from alm.database import init_tables
 
 
 async def _add_or_update_alert(alert):

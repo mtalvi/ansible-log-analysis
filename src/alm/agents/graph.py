@@ -1,8 +1,8 @@
 from alm.agents.get_more_context_agent.state import ContextAgentState
 from alm.agents.loki_agent.schemas import LogEntry, LogLabels
-from src.alm.llm import get_llm
-from src.alm.models import GrafanaAlert
-from src.alm.agents.node import (
+from alm.llm import get_llm
+from alm.models import GrafanaAlert
+from alm.agents.node import (
     summarize_log,
     classify_log,
     suggest_step_by_step_solution,
@@ -11,7 +11,7 @@ from src.alm.agents.node import (
 )
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
-from src.alm.agents.get_more_context_agent.graph import more_context_agent_graph
+from alm.agents.get_more_context_agent.graph import more_context_agent_graph
 
 from typing import Literal
 
