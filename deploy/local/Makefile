@@ -4,6 +4,9 @@
 include ../../.env
 export $(shell sed 's/=.*//' ../../.env | xargs)
 
+train: run-whole-training-pipeline
+training: run-whole-training-pipeline
+
 install: start ## Install all services (alias for start)
 
 deploy: start ## Deploy all services (alias for start)
@@ -43,7 +46,7 @@ phoenix: ## 📊 Start Phoenix
 
 backend: ## ⚙️ Start Backend (FastAPI)
 	@echo "   Starting Backend API..."
-	@cd ../.. && uv run uvicorn src.alm.main_fastapi:app --reload &
+	@cd ../.. && uv run uvicorn alm.main_fastapi:app --reload &
 
 ui: ## 🖥️ Start UI (Gradio)
 	@echo "   Starting UI Interface..."

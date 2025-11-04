@@ -1,7 +1,7 @@
 import asyncio
 from dotenv import load_dotenv
-from src.alm.pipeline.offline import whole_pipeline
-from src.alm.utils.phoenix import register_phoenix
+from alm.pipeline.offline import whole_pipeline
+from alm.utils.phoenix import register_phoenix
 
 load_dotenv()
 

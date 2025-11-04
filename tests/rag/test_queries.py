@@ -18,9 +18,6 @@ Usage (from project root):
 import sys
 from pathlib import Path
 
-# Add src to path to enable imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
 from alm.rag.query_pipeline import (
     AnsibleErrorQueryPipeline,
     format_response_for_display,

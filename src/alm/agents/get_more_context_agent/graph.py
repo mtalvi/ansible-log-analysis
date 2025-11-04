@@ -1,12 +1,12 @@
 # from alm.agents.loki_agent.graph import loki_agent_graph
 # from alm.agents.loki_agent.state import LokiAgentState
-from src.alm.llm import get_llm
+from alm.llm import get_llm
 
-from src.alm.agents.get_more_context_agent.node import (
+from alm.agents.get_more_context_agent.node import (
     get_cheat_sheet_context,
     loki_router,
 )
-from src.alm.agents.get_more_context_agent.state import ContextAgentState
+from alm.agents.get_more_context_agent.state import ContextAgentState
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 

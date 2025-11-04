@@ -76,15 +76,13 @@ Thumbs.db
 .gitattributes
 
 # Documentation
-README.md
-readme.md
-README
-readme
 CHANGELOG.md
 changelog.md
 LICENSE
 license
 *.md
+# README.md is needed by uv_build backend - must come after *.md to override
+!README.md
 docs/
 doc/
 
