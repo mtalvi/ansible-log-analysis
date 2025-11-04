@@ -19,11 +19,11 @@ endef
 # Function to prompt for OpenAI credentials
 define prompt_openai_credentials
 	@echo "============================================"
-	@echo "   OpenAI API Configuration Required"
+	@echo "   LLM API Configuration Required"
 	@echo "============================================"
 	@echo ""
 	@if [ -z "$$OPENAI_API_TOKEN" ]; then \
-		echo -n "Enter MaaS OPENAI_API_TOKEN: "; \
+		echo -n "Enter MaaS LLM API TOKEN: "; \
 		read -s OPENAI_API_TOKEN_INPUT; \
 		echo ""; \
 		export OPENAI_API_TOKEN=$$OPENAI_API_TOKEN_INPUT; \
@@ -31,7 +31,7 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_API_TOKEN"; \
 	fi; \
 	if [ -z "$$OPENAI_API_ENDPOINT" ]; then \
-		echo -n "Enter MaaS OPENAI_API_ENDPOINT, #### dont forget /v1 (or other version) at the end #### (or press Enter for default): "; \
+		echo -n "Enter MaaS LLM API ENDPOINT (include /v1 suffix) [default: $(OPENAI_API_ENDPOINT)]: "; \
 		read OPENAI_API_ENDPOINT_INPUT; \
 		if [ -z "$$OPENAI_API_ENDPOINT_INPUT" ]; then \
 			export OPENAI_API_ENDPOINT="$(OPENAI_API_ENDPOINT)"; \
@@ -42,7 +42,7 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_API_ENDPOINT: $$OPENAI_API_ENDPOINT"; \
 	fi; \
 	if [ -z "$$OPENAI_MODEL" ]; then \
-		echo -n "Enter MaaS OPENAI_MODEL (or press Enter for default): "; \
+		echo -n "Enter MaaS LLM MODEL NAME [default: $(OPENAI_MODEL)]: "; \
 		read OPENAI_MODEL_INPUT; \
 		if [ -z "$$OPENAI_MODEL_INPUT" ]; then \
 			export OPENAI_MODEL="$(OPENAI_MODEL)"; \
@@ -53,7 +53,7 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_MODEL: $$OPENAI_MODEL"; \
 	fi; \
 	if [ -z "$$OPENAI_TEMPERATURE" ]; then \
-		echo -n "Enter MaaS OPENAI_TEMPERATURE (or press Enter for default): "; \
+		echo -n "Enter LLM TEMPERATURE [default: $(OPENAI_TEMPERATURE)]: "; \
 		read OPENAI_TEMPERATURE_INPUT; \
 		if [ -z "$$OPENAI_TEMPERATURE_INPUT" ]; then \
 			export OPENAI_TEMPERATURE="$(OPENAI_TEMPERATURE)"; \
@@ -64,12 +64,53 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_TEMPERATURE: $$OPENAI_TEMPERATURE"; \
 	fi; \
 	echo ""; \
+	echo "============================================"
+	echo "   RAG Embedding API Configuration"
+	echo "============================================"
+	echo ""
+	echo "Configure MAAS embedding API for RAG (Retrieval Augmented Generation)"
+	echo ""
+	if [ -z "$$EMBEDDINGS_LLM_API_KEY" ]; then \
+		echo -n "Enter MaaS EMBEDDING API KEY [press Enter to use same as LLM]: "; \
+		read -s EMBEDDINGS_API_KEY_INPUT; \
+		echo ""; \
+		if [ -z "$$EMBEDDINGS_API_KEY_INPUT" ]; then \
+			export EMBEDDINGS_LLM_API_KEY=$$OPENAI_API_TOKEN; \
+			echo "Using same token as LLM"; \
+		else \
+			export EMBEDDINGS_LLM_API_KEY=$$EMBEDDINGS_API_KEY_INPUT; \
+		fi; \
+	else \
+		echo "Using provided EMBEDDINGS_LLM_API_KEY"; \
+	fi; \
+	if [ -z "$$EMBEDDINGS_LLM_URL" ]; then \
+		echo -n "Enter MaaS EMBEDDING API ENDPOINT (include /v1 suffix): "; \
+		read EMBEDDINGS_URL_INPUT; \
+		export EMBEDDINGS_LLM_URL=$$EMBEDDINGS_URL_INPUT; \
+	else \
+		echo "Using provided EMBEDDINGS_LLM_URL: $$EMBEDDINGS_LLM_URL"; \
+	fi; \
+	if [ -z "$$EMBEDDINGS_LLM_MODEL_NAME" ]; then \
+		echo -n "Enter EMBEDDING MODEL NAME [default: nomic-ai/nomic-embed-text-v1.5]: "; \
+		read EMBEDDINGS_MODEL_INPUT; \
+		if [ -z "$$EMBEDDINGS_MODEL_INPUT" ]; then \
+			export EMBEDDINGS_LLM_MODEL_NAME="nomic-ai/nomic-embed-text-v1.5"; \
+		else \
+			export EMBEDDINGS_LLM_MODEL_NAME=$$EMBEDDINGS_MODEL_INPUT; \
+		fi; \
+	else \
+		echo "Using provided EMBEDDINGS_LLM_MODEL_NAME: $$EMBEDDINGS_LLM_MODEL_NAME"; \
+	fi; \
+	echo ""; \
 	echo "Creating Kubernetes secret 'model-secret'..."; \
 	oc create secret generic model-secret \
 		--from-literal=OPENAI_API_TOKEN=$$OPENAI_API_TOKEN \
 		--from-literal=OPENAI_API_ENDPOINT=$$OPENAI_API_ENDPOINT \
 		--from-literal=OPENAI_MODEL=$$OPENAI_MODEL \
 		--from-literal=OPENAI_TEMPERATURE=$$OPENAI_TEMPERATURE \
+		--from-literal=EMBEDDINGS_LLM_API_KEY=$$EMBEDDINGS_LLM_API_KEY \
+		--from-literal=EMBEDDINGS_LLM_URL=$$EMBEDDINGS_LLM_URL \
+		--from-literal=EMBEDDINGS_LLM_MODEL_NAME=$$EMBEDDINGS_LLM_MODEL_NAME \
 		-n $(NAMESPACE) --dry-run=client -o yaml | oc apply -f -; \
 	echo "Secret 'model-secret' created successfully"; \
 	echo ""

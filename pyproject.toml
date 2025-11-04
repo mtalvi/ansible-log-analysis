@@ -29,6 +29,8 @@ dependencies = [
     "scikit-learn>=1.7.1",
     "sentence-transformers",
     "faiss-cpu>=1.7.4",
+    "torch==2.9.0+cpu",
+    "torchvision==0.24.0+cpu",
 
     # Object storage
     "minio>=7.2.17",
@@ -63,3 +65,7 @@ extend-exclude = [
     "notebooks/",
     "evals/",
 ]
+
+[tool.uv]
+# Use PyTorch CPU-only builds to avoid large CUDA dependencies
+extra-index-url = ["https://download.pytorch.org/whl/cpu"]
