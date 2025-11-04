@@ -4,6 +4,9 @@
 include ../../.env
 export $(shell sed 's/=.*//' ../../.env | xargs)
 
+train: run-whole-training-pipeline
+training: run-whole-training-pipeline
+
 install: start ## Install all services (alias for start)
 
 deploy: start ## Deploy all services (alias for start)
