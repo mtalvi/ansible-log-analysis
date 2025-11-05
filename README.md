@@ -222,7 +222,7 @@ cp .env.example .env
 # Edit .env with your API keys and configuration:
 # - OPENAI_API_ENDPOINT: VLLM (OpenAI) compitable endpoint (some endpoint need to add /v1 as suffix)
 # - OPENAI_API_TOKEN: your token to the endpoint
-# - OPENAI_MODEL: Model to use (e.g., Granite-3.3-8B-Instruct	)
+# - OPENAI_MODEL: Model to use (e.g., llama-4-scout-17b-16e-w4a16	)
 # - LANGSMITH_API_KEY: Optional, for LangSmith tracing
 ```
 
