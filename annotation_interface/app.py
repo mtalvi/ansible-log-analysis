@@ -77,7 +77,7 @@ class DataAnnotationApp:
                         "line_number": labels.get("line_number", "")
                         if isinstance(labels, dict)
                         else "",
-                        "line_content": row.logMessage or "No log content",
+                        "logMessage": row.logMessage or "No log content",
                         "summary": row.logSummary or "No summary available",
                         "context_for_solution": row.contextForStepByStepSolution
                         or "No context available",
@@ -159,7 +159,7 @@ class DataAnnotationApp:
             "line_number": current_entry.get("line_number", ""),
             "feedback": feedback,
             "golden_solution": golden_solution,
-            "line_content": current_entry.get("line_content", "No line context"),
+            "logMessage": current_entry.get("logMessage", "No line context"),
         }
 
         # Remove any existing feedback for this entry
@@ -195,7 +195,7 @@ class DataAnnotationApp:
         entry = self.data[self.current_index]
 
         # Format error log with syntax highlighting
-        log_content = entry.get("line_content", "No log content")
+        log_content = entry.get("logMessage", "No log content")
 
         # Format summary
         summary = entry.get("summary", "No summary available")
@@ -297,7 +297,7 @@ class DataAnnotationApp:
                 <tr style="border-bottom: 1px solid #475569; background-color: #1e293b;" onmouseover="this.style.backgroundColor='#334155'" onmouseout="this.style.backgroundColor='#1e293b'">
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{feedback["index"] + 1}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["filename"]}">{feedback["filename"][:20]}...</td>
-                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["line_content"]}">{feedback["line_content"]}</td>
+                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["logMessage"]}">{feedback["logMessage"]}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["feedback"]}">{feedback_text}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{timestamp}</td>
                 </tr>
@@ -319,7 +319,15 @@ def create_app():
 
     # Custom CSS for dark theme
     css = """
-    .error-log { 
+    .summary-box {
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #475569 !important;
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+        line-height: 1.6;
+    }
+    .basic_box {
         font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace; 
         font-size: 12px; 
         line-height: 1.5; 
@@ -330,88 +338,6 @@ def create_app():
         border: 1px solid #334155 !important;
         max-height: 600px;
         overflow-y: auto;
-    }
-    .summary-box {
-        padding: 16px;
-        border-radius: 8px;
-        border: 1px solid #475569 !important;
-        background-color: #1e293b !important;
-        color: #e2e8f0 !important;
-        line-height: 1.6;
-    }
-    .solution-box {
-        padding: 16px !important;
-        border-radius: 8px !important;
-        border: 1px solid #475569 !important;
-        background-color: #1e293b !important;
-        color: #e2e8f0 !important;
-        line-height: 1.6 !important;
-        max-height: 600px !important;
-        overflow-y: auto !important;
-        min-height: 400px !important;
-    }
-    .solution-box > div {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-    .solution-box h1, .solution-box h2, .solution-box h3, .solution-box h4 {
-        color: #f1f5f9 !important;
-        margin-top: 16px;
-        margin-bottom: 8px;
-    }
-    .solution-box h1 {
-        font-size: 1.5em;
-        border-bottom: 2px solid #475569;
-        padding-bottom: 8px;
-    }
-    .solution-box h2 {
-        font-size: 1.3em;
-        border-bottom: 1px solid #475569;
-        padding-bottom: 6px;
-    }
-    .solution-box h3 {
-        font-size: 1.1em;
-    }
-    .solution-box code {
-        background-color: #0f172a !important;
-        color: #38bdf8 !important;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    .solution-box pre {
-        background-color: #0f172a !important;
-        border: 1px solid #334155 !important;
-        border-radius: 6px;
-        padding: 12px;
-        overflow-x: auto;
-    }
-    .solution-box pre code {
-        background-color: transparent !important;
-        padding: 0;
-    }
-    .solution-box ul, .solution-box ol {
-        margin-left: 20px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-    .solution-box li {
-        margin-bottom: 4px;
-    }
-    .solution-box blockquote {
-        border-left: 4px solid #475569;
-        padding-left: 16px;
-        margin-left: 0;
-        color: #cbd5e1;
-        font-style: italic;
-    }
-    .solution-box a {
-        color: #60a5fa !important;
-        text-decoration: underline;
-    }
-    .solution-box a:hover {
-        color: #93c5fd !important;
     }
     .feedback-box {
         min-height: 200px;
@@ -486,7 +412,9 @@ def create_app():
                 scale=2,
             )
             prev_btn = gr.Button(
-                "← Prev", elem_classes="nav-button", scale=1, size="sm"
+                "← Prev",
+                elem_classes="nav-button",
+                scale=1,
             )
             nav_info = gr.Textbox(
                 label="Position",
@@ -496,7 +424,9 @@ def create_app():
                 scale=1,
             )
             next_btn = gr.Button(
-                "Next →", elem_classes="nav-button", scale=1, size="sm"
+                "Next →",
+                elem_classes="nav-button",
+                scale=1,
             )
             jump_input = gr.Number(
                 label="Jump to",
@@ -506,17 +436,20 @@ def create_app():
                 scale=1,
                 container=False,
             )
-            jump_btn = gr.Button("Go", scale=1, size="sm")
+            jump_btn = gr.Button(
+                "Go",
+                scale=1,
+            )
 
         # Main content area - Reorganized into rows
 
         # Row 1: Inputs
         gr.Markdown("## 📥 Inputs")
         error_log = gr.Textbox(
-            elem_classes="error-log",
+            elem_classes="basic_box",
             label="Error Log",
-            lines=15,
-            max_lines=15,
+            lines=5,
+            max_lines=5,
             interactive=False,
             show_copy_button=True,
         )
@@ -524,13 +457,13 @@ def create_app():
         # Row 2: Outputs (toggleable)
 
         with gr.Row():
+            gr.Markdown("## 🤖 AI-Generated Outputs")
             show_outputs_toggle = gr.Checkbox(
                 label="🤖 Show AI-Generated Outputs",
                 value=True,
                 interactive=True,
             )
         with gr.Group(visible=True) as outputs_section:
-            gr.Markdown("## 🤖 AI-Generated Outputs")
             with gr.Row():
                 show_summary_toggle = gr.Checkbox(
                     label="Show Summary",
@@ -555,7 +488,7 @@ def create_app():
                     gr.Markdown("### 🦾 Generated Summary")
                     summary = gr.Textbox(
                         lines=8,
-                        elem_classes="summary-box",
+                        elem_classes="basic_box",
                         visible=True,
                         show_label=False,
                     )
@@ -563,10 +496,10 @@ def create_app():
                 with gr.Column():
                     gr.Markdown("### 🔍 Context for Solution")
                     context_for_solution = gr.Textbox(
-                        elem_classes="solution-box",
+                        elem_classes="basic_box",
                         show_label=False,
-                        lines=18,
-                        max_lines=18,
+                        lines=8,
+                        max_lines=8,
                         interactive=False,
                         show_copy_button=True,
                     )
@@ -576,12 +509,22 @@ def create_app():
                     step_by_step = gr.Markdown(
                         value="",
                         label="🤖 Generated Step-by-Step Solution",
-                        elem_classes="solution-box",
+                        elem_classes="basic_box",
                         visible=True,
                     )
 
         # Row 3: Feedback columns
         gr.Markdown("## 📝 Human Annotations")
+
+        with gr.Row():
+            annotation_view_toggle = gr.Radio(
+                choices=["Feedback & Failure Mode", "Golden Solution"],
+                value="Feedback & Failure Mode",
+                label="📝 Human Annotations",
+                interactive=True,
+                scale=1,
+            )
+
         with gr.Row():
             with gr.Column(scale=1):
                 feedback_text = gr.Textbox(
@@ -593,9 +536,9 @@ def create_app():
                     "- What failure modes do you observe?\n"
                     "- Any missing information?",
                     elem_classes="feedback-box",
+                    visible=True,
                 )
 
-            with gr.Column(scale=1):
                 golden_solution_text = gr.Textbox(
                     label="Golden Step-by-Step Solution (Optional)",
                     lines=15,
@@ -606,6 +549,7 @@ def create_app():
                     "4. Prevention measures\n\n"
                     "This will be saved alongside your feedback for comparison with AI-generated solutions.",
                     elem_classes="feedback-box",
+                    visible=False,
                 )
 
         # Save feedback button and status
@@ -752,6 +696,15 @@ def create_app():
         def handle_solution_toggle(show_solution):
             return gr.update(visible=show_solution)
 
+        def handle_annotation_view_toggle(view_selection):
+            """Toggle between feedback and golden solution views."""
+            show_feedback = view_selection == "Feedback & Failure Mode"
+            show_golden = view_selection == "Golden Solution"
+            return (
+                gr.update(visible=show_feedback),  # feedback_text
+                gr.update(visible=show_golden),  # golden_solution_text
+            )
+
         # Bind events
         interface.load(
             init_interface,
@@ -881,6 +834,12 @@ def create_app():
             handle_solution_toggle,
             inputs=[show_solution_toggle],
             outputs=[step_by_step],
+        )
+
+        annotation_view_toggle.change(
+            handle_annotation_view_toggle,
+            inputs=[annotation_view_toggle],
+            outputs=[feedback_text, golden_solution_text],
         )
 
     return interface
