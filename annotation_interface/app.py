@@ -50,7 +50,7 @@ class DataAnnotationApp:
                         "logSummary", 
                         "stepByStepSolution",
                         "logCluster",
-                        labels
+                        "log_labels"
                     FROM {self.table_name}
                     ORDER BY id
                 """)
@@ -62,7 +62,11 @@ class DataAnnotationApp:
                 self.all_data = []
                 for row in rows:
                     # Parse labels JSON if it exists
-                    labels = row.labels if hasattr(row, "labels") and row.labels else {}
+                    labels = (
+                        row.log_labels
+                        if hasattr(row, "labels") and row.log_labels
+                        else {}
+                    )
 
                     data_entry = {
                         "id": row.id,
@@ -107,7 +111,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -137,8 +141,8 @@ class DataAnnotationApp:
         self.current_index = 0
         return self.get_current_entry()
 
-    def save_feedback(self, feedback: str) -> str:
-        """Save feedback for current data entry."""
+    def save_feedback(self, feedback: str, golden_solution: str = "") -> str:
+        """Save feedback and golden solution for current data entry."""
         if not self.data:
             return "No data available"
 
@@ -151,6 +155,7 @@ class DataAnnotationApp:
             "filename": current_entry.get("filename", ""),
             "line_number": current_entry.get("line_number", ""),
             "feedback": feedback,
+            "golden_solution": golden_solution,
             "line_content": current_entry.get("line_content", "No line context"),
         }
 
@@ -159,8 +164,8 @@ class DataAnnotationApp:
             f for f in self.feedback_data if f["index"] != self.current_index
         ]
 
-        # Add new feedback if not empty
-        if feedback.strip():
+        # Add new feedback if not empty (either feedback or golden_solution)
+        if feedback.strip() or golden_solution.strip():
             self.feedback_data.append(feedback_entry)
 
         # Save to file
@@ -171,13 +176,14 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str]:
+    def get_current_entry(self) -> Tuple[str, str, str, str, str, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
                 "No data",
                 "No data",
                 "No data",
+                "",
                 "",
                 "0 / 0",
             )
@@ -202,11 +208,13 @@ class DataAnnotationApp:
             "4. Prevention measures",
         )
 
-        # Get existing feedback for this entry
+        # Get existing feedback and golden solution for this entry
         existing_feedback = ""
+        existing_golden_solution = ""
         for f in self.feedback_data:
             if f["index"] == self.current_index:
-                existing_feedback = f["feedback"]
+                existing_feedback = f.get("feedback", "")
+                existing_golden_solution = f.get("golden_solution", "")
                 break
 
         # Navigation info
@@ -217,10 +225,11 @@ class DataAnnotationApp:
             summary,
             step_by_step,
             existing_feedback,
+            existing_golden_solution,
             nav_info,
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str]:
+    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -230,7 +239,7 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str]:
+    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -320,15 +329,20 @@ def create_app():
         line-height: 1.6;
     }
     .solution-box {
-        padding: 16px;
-        border-radius: 8px;
+        padding: 16px !important;
+        border-radius: 8px !important;
         border: 1px solid #475569 !important;
         background-color: #1e293b !important;
         color: #e2e8f0 !important;
-        line-height: 1.6;
-        margin-top: 12px;
-        max-height: 600px;
-        overflow-y: auto;
+        line-height: 1.6 !important;
+        max-height: 600px !important;
+        overflow-y: auto !important;
+        min-height: 400px !important;
+    }
+    .solution-box > div {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0 !important;
     }
     .solution-box h1, .solution-box h2, .solution-box h3, .solution-box h4 {
         color: #f1f5f9 !important;
@@ -395,11 +409,13 @@ def create_app():
         border: 1px solid #475569 !important;
     }
     .nav-button {
-        min-width: 100px;
-        margin: 6px;
+        min-width: 60px;
+        margin: 2px;
         background-color: #475569 !important;
         color: #f1f5f9 !important;
         border: 1px solid #64748b !important;
+        padding: 4px 8px !important;
+        font-size: 0.9em !important;
     }
     .nav-button:hover {
         background-color: #64748b !important;
@@ -450,72 +466,100 @@ def create_app():
             "Annotate pipeline outputs with feedback on failure modes and solution quality."
         )
 
-        # Cluster sampling toggle
+        # Compact navigation controls - all in one row
         with gr.Row():
             cluster_sample_toggle = gr.Checkbox(
-                label="Show one sample per cluster (reduces duplicates)",
+                label="One sample per cluster",
                 value=False,
                 interactive=True,
+                scale=2,
             )
-
-        # Navigation controls
-        with gr.Row():
-            with gr.Column(scale=1):
-                prev_btn = gr.Button("← Previous (←)", elem_classes="nav-button")
-
-            with gr.Column(scale=2):
-                nav_info = gr.Textbox(
-                    label="Position",
-                    interactive=False,
-                    value="Loading...",
-                    container=False,
-                )
-
-            with gr.Column(scale=1):
-                next_btn = gr.Button("Next (→)", elem_classes="nav-button")
-
-        # Jump to specific entry
-        with gr.Row():
+            prev_btn = gr.Button(
+                "← Prev", elem_classes="nav-button", scale=1, size="sm"
+            )
+            nav_info = gr.Textbox(
+                label="Position",
+                interactive=False,
+                value="Loading...",
+                container=False,
+                scale=1,
+            )
+            next_btn = gr.Button(
+                "Next →", elem_classes="nav-button", scale=1, size="sm"
+            )
             jump_input = gr.Number(
-                label="Jump to entry", minimum=1, step=1, precision=0
+                label="Jump to",
+                minimum=1,
+                step=1,
+                precision=0,
+                scale=1,
+                container=False,
             )
-            jump_btn = gr.Button("Go")
+            jump_btn = gr.Button("Go", scale=1, size="sm")
 
-        # Main content area
+        # Main content area - Reorganized into rows
+
+        # Row 1: Inputs
+        gr.Markdown("## 📥 Inputs")
+        error_log = gr.Textbox(
+            label="Error Log",
+            lines=15,
+            max_lines=15,
+            elem_classes="error-log",
+            interactive=False,
+            show_copy_button=True,
+        )
+
+        # Row 2: Outputs (toggleable)
+
         with gr.Row():
-            # Left column - Error Log
-            with gr.Column(scale=2):
-                gr.Markdown("## Input:")
-                error_log = gr.Textbox(
-                    label="Error Log",
-                    lines=25,
-                    elem_classes="error-log",
-                    interactive=False,
-                    show_copy_button=True,
+            show_outputs_toggle = gr.Checkbox(
+                label="🤖 Show AI-Generated Outputs",
+                value=True,
+                interactive=True,
+            )
+        with gr.Group(visible=True) as outputs_section:
+            gr.Markdown("## 🤖 AI-Generated Outputs")
+            with gr.Row():
+                show_summary_toggle = gr.Checkbox(
+                    label="Show Summary",
+                    value=True,
+                    interactive=True,
+                    scale=1,
                 )
-
-            # Center column - Summary and Solution
-            with gr.Column(scale=2):
-                gr.Markdown("## Outputs:")
-                summary = gr.Textbox(
-                    label="Summary",
-                    lines=8,
-                    elem_classes="summary-box",
-                    interactive=False,
+                show_solution_toggle = gr.Checkbox(
+                    label="Show Step-by-Step Solution",
+                    value=True,
+                    interactive=True,
+                    scale=1,
                 )
+            with gr.Column():
+                with gr.Column(scale=1):
+                    gr.Markdown("### 🦾 Generated Summary")
+                    summary = gr.Textbox(
+                        lines=8,
+                        elem_classes="summary-box",
+                        interactive=False,
+                        visible=True,
+                        show_label=False,
+                    )
 
-                step_by_step = gr.Markdown(
-                    label="Step-by-Step Solution",
-                    elem_classes="solution-box",
-                    # lines=15,
-                    # interactive=False,
-                )
+                with gr.Column(scale=1):
+                    gr.Markdown("### 🦾 Step-by-Step Solution")
+                    step_by_step = gr.Markdown(
+                        value="",
+                        label="🤖 Generated Step-by-Step Solution",
+                        elem_classes="solution-box",
+                        visible=True,
+                    )
 
-            # Right column - Feedback
-            with gr.Column(scale=2):
+        # Row 3: Feedback columns
+        gr.Markdown("## 📝 Human Annotations")
+        with gr.Row():
+            with gr.Column(scale=1):
                 feedback_text = gr.Textbox(
                     label="Feedback & Failure Mode Analysis",
-                    lines=20,
+                    lines=15,
                     placeholder="Describe any issues with the summary or solution:\n"
                     "- Is the summary accurate?\n"
                     "- Is the solution appropriate?\n"
@@ -524,31 +568,119 @@ def create_app():
                     elem_classes="feedback-box",
                 )
 
-                save_feedback_btn = gr.Button("Save Feedback", variant="primary")
-                feedback_status = gr.Textbox(label="Status", interactive=False, lines=1)
+            with gr.Column(scale=1):
+                golden_solution_text = gr.Textbox(
+                    label="Golden Step-by-Step Solution (Optional)",
+                    lines=15,
+                    placeholder="Provide your golden/ideal step-by-step solution:\n"
+                    "1. Clear problem identification\n"
+                    "2. Root cause analysis\n"
+                    "3. Step-by-step solution\n"
+                    "4. Prevention measures\n\n"
+                    "This will be saved alongside your feedback for comparison with AI-generated solutions.",
+                    elem_classes="feedback-box",
+                )
+
+        # Save feedback button and status
+        with gr.Row():
+            save_feedback_btn = gr.Button(
+                "💾 Save Feedback", variant="primary", scale=1
+            )
+            feedback_status = gr.Textbox(
+                label="Status", interactive=False, lines=1, scale=2
+            )
 
         # Initialize the interface
         def init_interface():
             return app.get_current_entry()
 
         # Event handlers
-        def handle_save_feedback(feedback):
-            status = app.save_feedback(feedback)
+        def handle_save_feedback(feedback, golden_solution):
+            status = app.save_feedback(feedback, golden_solution)
             return status
 
-        def handle_navigate_prev():
-            return app.navigate(-1)
+        def handle_navigate_prev(show_outputs, show_summary, show_solution):
+            log_content, summary_content, step_content, feedback, golden, nav = (
+                app.navigate(-1)
+            )
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+            )
 
-        def handle_navigate_next():
-            return app.navigate(1)
+        def handle_navigate_next(show_outputs, show_summary, show_solution):
+            log_content, summary_content, step_content, feedback, golden, nav = (
+                app.navigate(1)
+            )
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+            )
 
-        def handle_jump(index):
+        def handle_jump(index, show_outputs, show_summary, show_solution):
             if index is not None:
-                return app.go_to_index(int(index) - 1)  # Convert to 0-based index
-            return app.get_current_entry()
+                log_content, summary_content, step_content, feedback, golden, nav = (
+                    app.go_to_index(int(index) - 1)
+                )
+            else:
+                log_content, summary_content, step_content, feedback, golden, nav = (
+                    app.get_current_entry()
+                )
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+            )
 
         def handle_cluster_toggle(show_sample):
             return app.toggle_cluster_sampling(show_sample)
+
+        def handle_outputs_toggle(show_outputs):
+            return gr.update(visible=show_outputs)
+
+        def handle_summary_toggle(show_summary):
+            return gr.update(visible=show_summary)
+
+        def handle_solution_toggle(show_solution):
+            return gr.update(visible=show_solution)
 
         # Bind events
         interface.load(
@@ -558,47 +690,70 @@ def create_app():
                 summary,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
                 nav_info,
             ],
         )
 
         prev_btn.click(
             handle_navigate_prev,
+            inputs=[show_outputs_toggle, show_summary_toggle, show_solution_toggle],
             outputs=[
                 error_log,
                 summary,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_solution_toggle,
+                outputs_section,
             ],
         )
 
         next_btn.click(
             handle_navigate_next,
+            inputs=[show_outputs_toggle, show_summary_toggle, show_solution_toggle],
             outputs=[
                 error_log,
                 summary,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_solution_toggle,
+                outputs_section,
             ],
         )
 
         jump_btn.click(
             handle_jump,
-            inputs=[jump_input],
+            inputs=[
+                jump_input,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
                 summary,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_solution_toggle,
+                outputs_section,
             ],
         )
 
         save_feedback_btn.click(
             handle_save_feedback,
-            inputs=[feedback_text],
+            inputs=[feedback_text, golden_solution_text],
             outputs=[feedback_status],
         )
 
@@ -610,8 +765,27 @@ def create_app():
                 summary,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
                 nav_info,
             ],
+        )
+
+        show_outputs_toggle.change(
+            handle_outputs_toggle,
+            inputs=[show_outputs_toggle],
+            outputs=[outputs_section],
+        )
+
+        show_summary_toggle.change(
+            handle_summary_toggle,
+            inputs=[show_summary_toggle],
+            outputs=[summary],
+        )
+
+        show_solution_toggle.change(
+            handle_solution_toggle,
+            inputs=[show_solution_toggle],
+            outputs=[step_by_step],
         )
 
     return interface
