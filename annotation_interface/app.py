@@ -114,7 +114,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str, str, str, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -182,7 +182,7 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str, str, str, str]:
+    def get_current_entry(self) -> Tuple[str, str, str, str, str, str, str, str, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
@@ -194,6 +194,7 @@ class DataAnnotationApp:
                 "",
                 "",
                 "0 / 0",
+                "",
             )
 
         entry = self.data[self.current_index]
@@ -245,9 +246,12 @@ class DataAnnotationApp:
             existing_golden_solution,
             existing_expected_behavior,
             nav_info,
+            step_by_step,  # raw text for copying
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str, str, str]:
+    def navigate(
+        self, direction: int
+    ) -> Tuple[str, str, str, str, str, str, str, str, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -257,7 +261,9 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str, str, str]:
+    def go_to_index(
+        self, index: int
+    ) -> Tuple[str, str, str, str, str, str, str, str, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -515,14 +521,28 @@ def create_app():
                     )
 
                 with gr.Column():
-                    solution_title = gr.Markdown(
-                        "### 🦾 Step-by-Step Solution", visible=True
-                    )
+                    with gr.Row():
+                        solution_title = gr.Markdown(
+                            "### 🦾 Step-by-Step Solution", visible=True
+                        )
+                        copy_solution_btn = gr.Button(
+                            "📋 Copy",
+                            size="sm",
+                            scale=0,
+                            min_width=80,
+                            visible=True,
+                        )
                     step_by_step = gr.Markdown(
                         value="",
                         label="🤖 Generated Step-by-Step Solution",
                         elem_classes="basic_box",
                         visible=True,
+                    )
+                    # Hidden textbox to store raw markdown for copying
+                    step_by_step_raw = gr.Textbox(
+                        value="",
+                        visible=False,
+                        elem_id="step_by_step_raw",
                     )
 
         # Row 3: Feedback columns
@@ -611,6 +631,7 @@ def create_app():
                 golden,
                 expected,
                 nav,
+                raw_step,
             ) = app.navigate(-1)
             # Return content updates with visibility + preserved toggle states
             return (
@@ -636,6 +657,7 @@ def create_app():
                 show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
             )
 
         def handle_navigate_next(
@@ -650,6 +672,7 @@ def create_app():
                 golden,
                 expected,
                 nav,
+                raw_step,
             ) = app.navigate(1)
             # Return content updates with visibility + preserved toggle states
             return (
@@ -675,6 +698,7 @@ def create_app():
                 show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
             )
 
         def handle_jump(index, show_outputs, show_summary, show_context, show_solution):
@@ -688,6 +712,7 @@ def create_app():
                     golden,
                     expected,
                     nav,
+                    raw_step,
                 ) = app.go_to_index(int(index) - 1)
             else:
                 (
@@ -699,6 +724,7 @@ def create_app():
                     golden,
                     expected,
                     nav,
+                    raw_step,
                 ) = app.get_current_entry()
             # Return content updates with visibility + preserved toggle states
             return (
@@ -724,6 +750,7 @@ def create_app():
                 show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
             )
 
         def handle_cluster_toggle(show_sample):
@@ -748,6 +775,7 @@ def create_app():
             return (
                 gr.update(visible=show_solution),  # solution_title
                 gr.update(visible=show_solution),  # step_by_step
+                gr.update(visible=show_solution),  # copy_solution_btn
             )
 
         def handle_annotation_view_toggle(view_selection):
@@ -773,6 +801,7 @@ def create_app():
                 golden_solution_text,
                 expected_behavior_text,
                 nav_info,
+                step_by_step_raw,
             ],
         )
 
@@ -801,6 +830,7 @@ def create_app():
                 show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
+                step_by_step_raw,
             ],
         )
 
@@ -829,6 +859,7 @@ def create_app():
                 show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
+                step_by_step_raw,
             ],
         )
 
@@ -858,6 +889,7 @@ def create_app():
                 show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
+                step_by_step_raw,
             ],
         )
 
@@ -879,6 +911,7 @@ def create_app():
                 golden_solution_text,
                 expected_behavior_text,
                 nav_info,
+                step_by_step_raw,
             ],
         )
 
@@ -903,7 +936,14 @@ def create_app():
         show_solution_toggle.change(
             handle_solution_toggle,
             inputs=[show_solution_toggle],
-            outputs=[solution_title, step_by_step],
+            outputs=[solution_title, step_by_step, copy_solution_btn],
+        )
+
+        copy_solution_btn.click(
+            None,
+            inputs=[step_by_step_raw],
+            outputs=[],
+            js="(text) => {navigator.clipboard.writeText(text); return text;}",
         )
 
         annotation_view_toggle.change(
