@@ -114,7 +114,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str, str, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -144,8 +144,10 @@ class DataAnnotationApp:
         self.current_index = 0
         return self.get_current_entry()
 
-    def save_feedback(self, feedback: str, golden_solution: str = "") -> str:
-        """Save feedback and golden solution for current data entry."""
+    def save_feedback(
+        self, feedback: str, golden_solution: str = "", expected_behavior: str = ""
+    ) -> str:
+        """Save feedback, golden solution, and expected behavior for current data entry."""
         if not self.data:
             return "No data available"
 
@@ -159,6 +161,7 @@ class DataAnnotationApp:
             "line_number": current_entry.get("line_number", ""),
             "feedback": feedback,
             "golden_solution": golden_solution,
+            "expected_behavior": expected_behavior,
             "logMessage": current_entry.get("logMessage", "No line context"),
         }
 
@@ -167,8 +170,8 @@ class DataAnnotationApp:
             f for f in self.feedback_data if f["index"] != self.current_index
         ]
 
-        # Add new feedback if not empty (either feedback or golden_solution)
-        if feedback.strip() or golden_solution.strip():
+        # Add new feedback if not empty (either feedback, golden_solution, or expected_behavior)
+        if feedback.strip() or golden_solution.strip() or expected_behavior.strip():
             self.feedback_data.append(feedback_entry)
 
         # Save to file
@@ -179,7 +182,7 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str, str, str]:
+    def get_current_entry(self) -> Tuple[str, str, str, str, str, str, str, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
@@ -187,6 +190,7 @@ class DataAnnotationApp:
                 "No data",
                 "No data",
                 "No data",
+                "",
                 "",
                 "",
                 "0 / 0",
@@ -218,13 +222,15 @@ class DataAnnotationApp:
             "4. Prevention measures",
         )
 
-        # Get existing feedback and golden solution for this entry
+        # Get existing feedback, golden solution, and expected behavior for this entry
         existing_feedback = ""
         existing_golden_solution = ""
+        existing_expected_behavior = ""
         for f in self.feedback_data:
             if f["index"] == self.current_index:
                 existing_feedback = f.get("feedback", "")
                 existing_golden_solution = f.get("golden_solution", "")
+                existing_expected_behavior = f.get("expected_behavior", "")
                 break
 
         # Navigation info
@@ -237,10 +243,11 @@ class DataAnnotationApp:
             step_by_step,
             existing_feedback,
             existing_golden_solution,
+            existing_expected_behavior,
             nav_info,
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str, str]:
+    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str, str, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -250,7 +257,7 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str, str]:
+    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str, str, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -337,7 +344,6 @@ def create_app():
         border-radius: 8px; 
         border: 1px solid #334155 !important;
         max-height: 600px;
-        overflow-y: auto;
     }
     .feedback-box {
         min-height: 200px;
@@ -485,7 +491,9 @@ def create_app():
                 )
             with gr.Column():
                 with gr.Column():
-                    gr.Markdown("### 🦾 Generated Summary")
+                    summary_title = gr.Markdown(
+                        "### 🦾 Generated Summary", visible=True
+                    )
                     summary = gr.Textbox(
                         lines=8,
                         elem_classes="basic_box",
@@ -494,7 +502,9 @@ def create_app():
                     )
 
                 with gr.Column():
-                    gr.Markdown("### 🔍 Context for Solution")
+                    context_title = gr.Markdown(
+                        "### 🔍 Context for Solution", visible=True
+                    )
                     context_for_solution = gr.Textbox(
                         elem_classes="basic_box",
                         show_label=False,
@@ -505,7 +515,9 @@ def create_app():
                     )
 
                 with gr.Column():
-                    gr.Markdown("### 🦾 Step-by-Step Solution")
+                    solution_title = gr.Markdown(
+                        "### 🦾 Step-by-Step Solution", visible=True
+                    )
                     step_by_step = gr.Markdown(
                         value="",
                         label="🤖 Generated Step-by-Step Solution",
@@ -518,7 +530,11 @@ def create_app():
 
         with gr.Row():
             annotation_view_toggle = gr.Radio(
-                choices=["Feedback & Failure Mode", "Golden Solution"],
+                choices=[
+                    "Feedback & Failure Mode",
+                    "Golden Solution",
+                    "Expected Behavior",
+                ],
                 value="Feedback & Failure Mode",
                 label="📝 Human Annotations",
                 interactive=True,
@@ -552,6 +568,19 @@ def create_app():
                     visible=False,
                 )
 
+                expected_behavior_text = gr.Textbox(
+                    label="What Should Happen to Produce the Right Solution",
+                    lines=15,
+                    placeholder="Describe what should happen to produce the correct solution:\n"
+                    "- What are the expected actions or steps?\n"
+                    "- What information or context is needed?\n"
+                    "- What should the ideal outcome look like?\n"
+                    "- What conditions need to be met?\n\n"
+                    "This helps document the expected behavior needed to generate the right solution.",
+                    elem_classes="feedback-box",
+                    visible=False,
+                )
+
         # Save feedback button and status
         with gr.Row():
             save_feedback_btn = gr.Button(
@@ -566,8 +595,8 @@ def create_app():
             return app.get_current_entry()
 
         # Event handlers
-        def handle_save_feedback(feedback, golden_solution):
-            status = app.save_feedback(feedback, golden_solution)
+        def handle_save_feedback(feedback, golden_solution, expected_behavior):
+            status = app.save_feedback(feedback, golden_solution, expected_behavior)
             return status
 
         def handle_navigate_prev(
@@ -580,22 +609,27 @@ def create_app():
                 step_content,
                 feedback,
                 golden,
+                expected,
                 nav,
             ) = app.navigate(-1)
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
                 gr.update(
                     value=context_content, visible=show_context
                 ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
                 feedback,  # feedback_text
                 golden,  # golden_solution_text
+                expected,  # expected_behavior_text
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
@@ -614,22 +648,27 @@ def create_app():
                 step_content,
                 feedback,
                 golden,
+                expected,
                 nav,
             ) = app.navigate(1)
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
                 gr.update(
                     value=context_content, visible=show_context
                 ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
                 feedback,  # feedback_text
                 golden,  # golden_solution_text
+                expected,  # expected_behavior_text
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
@@ -647,6 +686,7 @@ def create_app():
                     step_content,
                     feedback,
                     golden,
+                    expected,
                     nav,
                 ) = app.go_to_index(int(index) - 1)
             else:
@@ -657,22 +697,27 @@ def create_app():
                     step_content,
                     feedback,
                     golden,
+                    expected,
                     nav,
                 ) = app.get_current_entry()
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
                 gr.update(
                     value=context_content, visible=show_context
                 ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
                 feedback,  # feedback_text
                 golden,  # golden_solution_text
+                expected,  # expected_behavior_text
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
@@ -688,21 +733,32 @@ def create_app():
             return gr.update(visible=show_outputs)
 
         def handle_summary_toggle(show_summary):
-            return gr.update(visible=show_summary)
+            return (
+                gr.update(visible=show_summary),  # summary_title
+                gr.update(visible=show_summary),  # summary
+            )
 
         def handle_context_toggle(show_context):
-            return gr.update(visible=show_context)
+            return (
+                gr.update(visible=show_context),  # context_title
+                gr.update(visible=show_context),  # context_for_solution
+            )
 
         def handle_solution_toggle(show_solution):
-            return gr.update(visible=show_solution)
+            return (
+                gr.update(visible=show_solution),  # solution_title
+                gr.update(visible=show_solution),  # step_by_step
+            )
 
         def handle_annotation_view_toggle(view_selection):
-            """Toggle between feedback and golden solution views."""
+            """Toggle between feedback, golden solution, and expected behavior views."""
             show_feedback = view_selection == "Feedback & Failure Mode"
             show_golden = view_selection == "Golden Solution"
+            show_expected = view_selection == "Expected Behavior"
             return (
                 gr.update(visible=show_feedback),  # feedback_text
                 gr.update(visible=show_golden),  # golden_solution_text
+                gr.update(visible=show_expected),  # expected_behavior_text
             )
 
         # Bind events
@@ -715,6 +771,7 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
+                expected_behavior_text,
                 nav_info,
             ],
         )
@@ -729,11 +786,15 @@ def create_app():
             ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
                 context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
+                expected_behavior_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
@@ -753,11 +814,15 @@ def create_app():
             ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
                 context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
+                expected_behavior_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
@@ -778,11 +843,15 @@ def create_app():
             ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
                 context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
+                expected_behavior_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
@@ -794,7 +863,7 @@ def create_app():
 
         save_feedback_btn.click(
             handle_save_feedback,
-            inputs=[feedback_text, golden_solution_text],
+            inputs=[feedback_text, golden_solution_text, expected_behavior_text],
             outputs=[feedback_status],
         )
 
@@ -808,6 +877,7 @@ def create_app():
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
+                expected_behavior_text,
                 nav_info,
             ],
         )
@@ -821,25 +891,25 @@ def create_app():
         show_summary_toggle.change(
             handle_summary_toggle,
             inputs=[show_summary_toggle],
-            outputs=[summary],
+            outputs=[summary_title, summary],
         )
 
         show_context_toggle.change(
             handle_context_toggle,
             inputs=[show_context_toggle],
-            outputs=[context_for_solution],
+            outputs=[context_title, context_for_solution],
         )
 
         show_solution_toggle.change(
             handle_solution_toggle,
             inputs=[show_solution_toggle],
-            outputs=[step_by_step],
+            outputs=[solution_title, step_by_step],
         )
 
         annotation_view_toggle.change(
             handle_annotation_view_toggle,
             inputs=[annotation_view_toggle],
-            outputs=[feedback_text, golden_solution_text],
+            outputs=[feedback_text, golden_solution_text, expected_behavior_text],
         )
 
     return interface
