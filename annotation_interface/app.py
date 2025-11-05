@@ -49,6 +49,7 @@ class DataAnnotationApp:
                         "logMessage",
                         "logSummary", 
                         "stepByStepSolution",
+                        "contextForStepByStepSolution",
                         "logCluster",
                         "log_labels"
                     FROM {self.table_name}
@@ -78,6 +79,8 @@ class DataAnnotationApp:
                         else "",
                         "line_content": row.logMessage or "No log content",
                         "summary": row.logSummary or "No summary available",
+                        "context_for_solution": row.contextForStepByStepSolution
+                        or "No context available",
                         "step_by_step_solution": row.stepByStepSolution
                         or "No solution available",
                         "log_cluster": row.logCluster
@@ -111,7 +114,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -176,10 +179,11 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str, str]:
+    def get_current_entry(self) -> Tuple[str, str, str, str, str, str, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
+                "No data",
                 "No data",
                 "No data",
                 "No data",
@@ -195,6 +199,12 @@ class DataAnnotationApp:
 
         # Format summary
         summary = entry.get("summary", "No summary available")
+
+        # Get context for solution
+        context_for_solution = entry.get(
+            "context_for_solution",
+            "No context available",
+        )
 
         # For now, use a placeholder for step-by-step solution
         # In the future, you can extend this to fetch from your database or add it to your JSON
@@ -223,13 +233,14 @@ class DataAnnotationApp:
         return (
             log_content,
             summary,
+            context_for_solution,
             step_by_step,
             existing_feedback,
             existing_golden_solution,
             nav_info,
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str]:
+    def navigate(self, direction: int) -> Tuple[str, str, str, str, str, str, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -239,7 +250,7 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str]:
+    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str, str, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -502,10 +513,10 @@ def create_app():
         # Row 1: Inputs
         gr.Markdown("## 📥 Inputs")
         error_log = gr.Textbox(
+            elem_classes="error-log",
             label="Error Log",
             lines=15,
             max_lines=15,
-            elem_classes="error-log",
             interactive=False,
             show_copy_button=True,
         )
@@ -527,6 +538,12 @@ def create_app():
                     interactive=True,
                     scale=1,
                 )
+                show_context_toggle = gr.Checkbox(
+                    label="Show Context for Solution",
+                    value=True,
+                    interactive=True,
+                    scale=1,
+                )
                 show_solution_toggle = gr.Checkbox(
                     label="Show Step-by-Step Solution",
                     value=True,
@@ -534,17 +551,27 @@ def create_app():
                     scale=1,
                 )
             with gr.Column():
-                with gr.Column(scale=1):
+                with gr.Column():
                     gr.Markdown("### 🦾 Generated Summary")
                     summary = gr.Textbox(
                         lines=8,
                         elem_classes="summary-box",
-                        interactive=False,
                         visible=True,
                         show_label=False,
                     )
 
-                with gr.Column(scale=1):
+                with gr.Column():
+                    gr.Markdown("### 🔍 Context for Solution")
+                    context_for_solution = gr.Textbox(
+                        elem_classes="solution-box",
+                        show_label=False,
+                        lines=18,
+                        max_lines=18,
+                        interactive=False,
+                        show_copy_button=True,
+                    )
+
+                with gr.Column():
                     gr.Markdown("### 🦾 Step-by-Step Solution")
                     step_by_step = gr.Markdown(
                         value="",
@@ -599,16 +626,27 @@ def create_app():
             status = app.save_feedback(feedback, golden_solution)
             return status
 
-        def handle_navigate_prev(show_outputs, show_summary, show_solution):
-            log_content, summary_content, step_content, feedback, golden, nav = (
-                app.navigate(-1)
-            )
+        def handle_navigate_prev(
+            show_outputs, show_summary, show_context, show_solution
+        ):
+            (
+                log_content,
+                summary_content,
+                context_content,
+                step_content,
+                feedback,
+                golden,
+                nav,
+            ) = app.navigate(-1)
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
@@ -617,20 +655,32 @@ def create_app():
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
             )
 
-        def handle_navigate_next(show_outputs, show_summary, show_solution):
-            log_content, summary_content, step_content, feedback, golden, nav = (
-                app.navigate(1)
-            )
+        def handle_navigate_next(
+            show_outputs, show_summary, show_context, show_solution
+        ):
+            (
+                log_content,
+                summary_content,
+                context_content,
+                step_content,
+                feedback,
+                golden,
+                nav,
+            ) = app.navigate(1)
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
@@ -639,25 +689,41 @@ def create_app():
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
             )
 
-        def handle_jump(index, show_outputs, show_summary, show_solution):
+        def handle_jump(index, show_outputs, show_summary, show_context, show_solution):
             if index is not None:
-                log_content, summary_content, step_content, feedback, golden, nav = (
-                    app.go_to_index(int(index) - 1)
-                )
+                (
+                    log_content,
+                    summary_content,
+                    context_content,
+                    step_content,
+                    feedback,
+                    golden,
+                    nav,
+                ) = app.go_to_index(int(index) - 1)
             else:
-                log_content, summary_content, step_content, feedback, golden, nav = (
-                    app.get_current_entry()
-                )
+                (
+                    log_content,
+                    summary_content,
+                    context_content,
+                    step_content,
+                    feedback,
+                    golden,
+                    nav,
+                ) = app.get_current_entry()
             # Return content updates with visibility + preserved toggle states
             return (
                 log_content,  # error_log
                 gr.update(
                     value=summary_content, visible=show_summary
                 ),  # summary with visibility
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
                 gr.update(
                     value=step_content, visible=show_solution
                 ),  # step_by_step with visibility
@@ -666,6 +732,7 @@ def create_app():
                 nav,  # nav_info
                 show_outputs,  # preserve show_outputs_toggle
                 show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
                 show_solution,  # preserve show_solution_toggle
                 gr.update(visible=show_outputs),  # outputs_section visibility
             )
@@ -679,6 +746,9 @@ def create_app():
         def handle_summary_toggle(show_summary):
             return gr.update(visible=show_summary)
 
+        def handle_context_toggle(show_context):
+            return gr.update(visible=show_context)
+
         def handle_solution_toggle(show_solution):
             return gr.update(visible=show_solution)
 
@@ -688,6 +758,7 @@ def create_app():
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
@@ -697,16 +768,23 @@ def create_app():
 
         prev_btn.click(
             handle_navigate_prev,
-            inputs=[show_outputs_toggle, show_summary_toggle, show_solution_toggle],
+            inputs=[
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
+                show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
             ],
@@ -714,16 +792,23 @@ def create_app():
 
         next_btn.click(
             handle_navigate_next,
-            inputs=[show_outputs_toggle, show_summary_toggle, show_solution_toggle],
+            inputs=[
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
+                show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
             ],
@@ -735,17 +820,20 @@ def create_app():
                 jump_input,
                 show_outputs_toggle,
                 show_summary_toggle,
+                show_context_toggle,
                 show_solution_toggle,
             ],
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
                 nav_info,
                 show_outputs_toggle,
                 show_summary_toggle,
+                show_context_toggle,
                 show_solution_toggle,
                 outputs_section,
             ],
@@ -763,6 +851,7 @@ def create_app():
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
                 golden_solution_text,
@@ -780,6 +869,12 @@ def create_app():
             handle_summary_toggle,
             inputs=[show_summary_toggle],
             outputs=[summary],
+        )
+
+        show_context_toggle.change(
+            handle_context_toggle,
+            inputs=[show_context_toggle],
+            outputs=[context_for_solution],
         )
 
         show_solution_toggle.change(
