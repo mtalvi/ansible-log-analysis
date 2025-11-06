@@ -18,11 +18,16 @@ endef
 
 # Function to prompt for OpenAI credentials
 define prompt_openai_credentials
-	@echo "============================================"
-	@echo "   LLM API Configuration Required"
-	@echo "============================================"
-	@echo ""
-	@if [ -z "$$OPENAI_API_TOKEN" ]; then \
+	@bash -c '\
+	DEFAULT_ENDPOINT="$(OPENAI_API_ENDPOINT)"; \
+	DEFAULT_MODEL="$(OPENAI_MODEL)"; \
+	DEFAULT_TEMP="$(OPENAI_TEMPERATURE)"; \
+	NAMESPACE_VAR="$(NAMESPACE)"; \
+	echo "============================================"; \
+	echo "   LLM API Configuration Required"; \
+	echo "============================================"; \
+	echo ""; \
+	if [ -z "$$OPENAI_API_TOKEN" ]; then \
 		echo -n "Enter MaaS LLM API TOKEN: "; \
 		read -s OPENAI_API_TOKEN_INPUT; \
 		echo ""; \
@@ -31,10 +36,10 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_API_TOKEN"; \
 	fi; \
 	if [ -z "$$OPENAI_API_ENDPOINT" ]; then \
-		echo -n "Enter MaaS LLM API ENDPOINT (include /v1 suffix) [default: $(OPENAI_API_ENDPOINT)]: "; \
+		echo -n "Enter MaaS LLM API ENDPOINT (include /v1 suffix) [default: $$DEFAULT_ENDPOINT]: "; \
 		read OPENAI_API_ENDPOINT_INPUT; \
 		if [ -z "$$OPENAI_API_ENDPOINT_INPUT" ]; then \
-			export OPENAI_API_ENDPOINT="$(OPENAI_API_ENDPOINT)"; \
+			export OPENAI_API_ENDPOINT="$$DEFAULT_ENDPOINT"; \
 		else \
 			export OPENAI_API_ENDPOINT=$$OPENAI_API_ENDPOINT_INPUT; \
 		fi; \
@@ -42,10 +47,10 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_API_ENDPOINT: $$OPENAI_API_ENDPOINT"; \
 	fi; \
 	if [ -z "$$OPENAI_MODEL" ]; then \
-		echo -n "Enter MaaS LLM MODEL NAME [default: $(OPENAI_MODEL)]: "; \
+		echo -n "Enter MaaS LLM MODEL NAME [default: $$DEFAULT_MODEL]: "; \
 		read OPENAI_MODEL_INPUT; \
 		if [ -z "$$OPENAI_MODEL_INPUT" ]; then \
-			export OPENAI_MODEL="$(OPENAI_MODEL)"; \
+			export OPENAI_MODEL="$$DEFAULT_MODEL"; \
 		else \
 			export OPENAI_MODEL=$$OPENAI_MODEL_INPUT; \
 		fi; \
@@ -53,10 +58,10 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_MODEL: $$OPENAI_MODEL"; \
 	fi; \
 	if [ -z "$$OPENAI_TEMPERATURE" ]; then \
-		echo -n "Enter LLM TEMPERATURE [default: $(OPENAI_TEMPERATURE)]: "; \
+		echo -n "Enter LLM TEMPERATURE [default: $$DEFAULT_TEMP]: "; \
 		read OPENAI_TEMPERATURE_INPUT; \
 		if [ -z "$$OPENAI_TEMPERATURE_INPUT" ]; then \
-			export OPENAI_TEMPERATURE="$(OPENAI_TEMPERATURE)"; \
+			export OPENAI_TEMPERATURE="$$DEFAULT_TEMP"; \
 		else \
 			export OPENAI_TEMPERATURE=$$OPENAI_TEMPERATURE_INPUT; \
 		fi; \
@@ -64,12 +69,12 @@ define prompt_openai_credentials
 		echo "Using provided OPENAI_TEMPERATURE: $$OPENAI_TEMPERATURE"; \
 	fi; \
 	echo ""; \
-	echo "============================================"
-	echo "   RAG Embedding API Configuration"
-	echo "============================================"
-	echo ""
-	echo "Configure MAAS embedding API for RAG (Retrieval Augmented Generation)"
-	echo ""
+	echo "============================================"; \
+	echo "   RAG Embedding API Configuration"; \
+	echo "============================================"; \
+	echo ""; \
+	echo "Configure MAAS embedding API for RAG (Retrieval Augmented Generation)"; \
+	echo ""; \
 	if [ -z "$$EMBEDDINGS_LLM_API_KEY" ]; then \
 		echo -n "Enter MaaS EMBEDDING API KEY [press Enter to use same as LLM]: "; \
 		read -s EMBEDDINGS_API_KEY_INPUT; \
@@ -102,7 +107,7 @@ define prompt_openai_credentials
 		echo "Using provided EMBEDDINGS_LLM_MODEL_NAME: $$EMBEDDINGS_LLM_MODEL_NAME"; \
 	fi; \
 	echo ""; \
-	echo "Creating Kubernetes secret 'model-secret'..."; \
+	echo "Creating Kubernetes secret '\''model-secret'\''..."; \
 	oc create secret generic model-secret \
 		--from-literal=OPENAI_API_TOKEN=$$OPENAI_API_TOKEN \
 		--from-literal=OPENAI_API_ENDPOINT=$$OPENAI_API_ENDPOINT \
@@ -111,9 +116,9 @@ define prompt_openai_credentials
 		--from-literal=EMBEDDINGS_LLM_API_KEY=$$EMBEDDINGS_LLM_API_KEY \
 		--from-literal=EMBEDDINGS_LLM_URL=$$EMBEDDINGS_LLM_URL \
 		--from-literal=EMBEDDINGS_LLM_MODEL_NAME=$$EMBEDDINGS_LLM_MODEL_NAME \
-		-n $(NAMESPACE) --dry-run=client -o yaml | oc apply -f -; \
-	echo "Secret 'model-secret' created successfully"; \
-	echo ""
+		-n "$$NAMESPACE_VAR" --dry-run=client -o yaml | oc apply -f -; \
+	echo "Secret '\''model-secret'\'' created successfully"; \
+	echo ""'
 endef
 
 env_args = \
@@ -188,6 +193,7 @@ uninstall:
 .PHONY: upgrade
 upgrade:
 	$(call check_namespace)
+	$(call prompt_openai_credentials)
 	@echo "Upgrading Ansible Log Monitor in namespace $(NAMESPACE)..."
 	@helm upgrade alm ./ansible-log-monitor -n $(NAMESPACE) $(env_args)
 	@echo "Ansible Log Monitor upgraded"

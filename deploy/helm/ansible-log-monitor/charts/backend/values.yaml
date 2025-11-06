@@ -236,6 +236,8 @@ rag:
   # Data paths
   dataDir: "/app/data"
   knowledgeBaseDir: "/app/data/knowledge_base"
+  # PVC mount path (different from dataDir to avoid overwriting image directories)
+  pvcMountPath: "/mnt/rag-data"
   
   # Persistence configuration for RAG index storage
   persistence:

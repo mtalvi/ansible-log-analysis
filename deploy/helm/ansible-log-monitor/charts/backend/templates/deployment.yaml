@@ -77,7 +77,7 @@ spec:
           volumeMounts:
           {{- if .Values.rag.enabled }}
             - name: rag-data
-              mountPath: {{ .Values.rag.dataDir }}
+              mountPath: {{ .Values.rag.pvcMountPath }}
               readOnly: true
           {{- end }}
           {{- with .Values.volumeMounts }}

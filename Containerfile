@@ -13,17 +13,22 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies only (not the project itself yet)
-# Set longer timeout for large package downloads (e.g., nvidia-cudnn-cu12)
+# Set environment to prevent CUDA dependencies and increase timeout
 RUN --mount=type=cache,target=/root/.cache/uv \
-    UV_HTTP_TIMEOUT=600 uv sync --frozen --no-install-project --no-dev
+    UV_HTTP_TIMEOUT=600 \
+    TORCH_CUDA_ARCH_LIST="" \
+    uv sync --frozen --no-install-project --no-dev
 
 # Copy source code and install project in production mode
 COPY README.md ./
 COPY src/ ./src/
+COPY data/logs/failed/ ./data/logs/failed/
 
 # Install the project itself (production mode, not editable)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    UV_HTTP_TIMEOUT=600 uv sync --frozen --no-dev --no-editable
+    UV_HTTP_TIMEOUT=600 \
+    TORCH_CUDA_ARCH_LIST="" \
+    uv sync --frozen --no-dev --no-editable
 
 # ============================================================================
 # Runtime Stage
@@ -43,7 +48,10 @@ COPY --from=builder /app/pyproject.toml /app/
 
 # Copy additional data files
 COPY data/knowledge_base/ ./data/knowledge_base/
+COPY data/logs/failed/ ./data/logs/failed/
 COPY init_pipeline.py ./
+COPY setup_data_dirs.sh ./
+COPY entrypoint.sh ./
 
 # Set environment variables
 ENV VIRTUAL_ENV=/app/.venv \
@@ -52,6 +60,7 @@ ENV VIRTUAL_ENV=/app/.venv \
 
 # Create necessary directories and set permissions for OpenShift (random UID, group 0)
 RUN mkdir -p /app/data/logs/failed /hf_cache && \
+    chmod +x setup_data_dirs.sh entrypoint.sh && \
     chgrp -R 0 /app /hf_cache && \
     chmod -R g=u /app /hf_cache
 
@@ -59,4 +68,5 @@ RUN mkdir -p /app/data/logs/failed /hf_cache && \
 EXPOSE 8000
 
 # Default command
-ENTRYPOINT ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]

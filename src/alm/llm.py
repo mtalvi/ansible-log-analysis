@@ -8,7 +8,7 @@ BASE_URL: str = os.getenv("OPENAI_API_ENDPOINT")
 
 # Constants for model configuration
 MODEL: str = os.getenv("OPENAI_MODEL")
-TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE"))
+TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE") or "0.7")
 
 if not API_KEY or not BASE_URL:
     raise ValueError(
