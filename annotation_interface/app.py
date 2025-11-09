@@ -49,8 +49,10 @@ class DataAnnotationApp:
                         "logMessage",
                         "logSummary", 
                         "stepByStepSolution",
+                        "contextForStepByStepSolution",
                         "logCluster",
-                        labels
+                        "log_labels",
+                        "needMoreContext"
                     FROM {self.table_name}
                     ORDER BY id
                 """)
@@ -62,7 +64,11 @@ class DataAnnotationApp:
                 self.all_data = []
                 for row in rows:
                     # Parse labels JSON if it exists
-                    labels = row.labels if hasattr(row, "labels") and row.labels else {}
+                    labels = (
+                        row.log_labels
+                        if hasattr(row, "labels") and row.log_labels
+                        else {}
+                    )
 
                     data_entry = {
                         "id": row.id,
@@ -72,13 +78,18 @@ class DataAnnotationApp:
                         "line_number": labels.get("line_number", "")
                         if isinstance(labels, dict)
                         else "",
-                        "line_content": row.logMessage or "No log content",
+                        "logMessage": row.logMessage or "No log content",
                         "summary": row.logSummary or "No summary available",
+                        "context_for_solution": row.contextForStepByStepSolution
+                        or "No context available",
                         "step_by_step_solution": row.stepByStepSolution
                         or "No solution available",
                         "log_cluster": row.logCluster
                         if hasattr(row, "logCluster")
                         else None,
+                        "need_more_context": row.needMoreContext
+                        if hasattr(row, "needMoreContext")
+                        else False,
                     }
                     self.all_data.append(data_entry)
 
@@ -107,7 +118,7 @@ class DataAnnotationApp:
 
     def toggle_cluster_sampling(
         self, show_sample: bool
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str, str, str, str, bool, bool, str]:
         """Toggle between showing all rows or one sample per cluster."""
         self.show_cluster_sample = show_sample
 
@@ -137,8 +148,15 @@ class DataAnnotationApp:
         self.current_index = 0
         return self.get_current_entry()
 
-    def save_feedback(self, feedback: str) -> str:
-        """Save feedback for current data entry."""
+    def save_feedback(
+        self,
+        feedback: str,
+        golden_solution: str = "",
+        expected_behavior: str = "",
+        need_more_context: bool = False,
+        need_more_context_reason: str = "",
+    ) -> str:
+        """Save feedback, golden solution, expected behavior, and need more context info for current data entry."""
         if not self.data:
             return "No data available"
 
@@ -151,7 +169,11 @@ class DataAnnotationApp:
             "filename": current_entry.get("filename", ""),
             "line_number": current_entry.get("line_number", ""),
             "feedback": feedback,
-            "line_content": current_entry.get("line_content", "No line context"),
+            "golden_solution": golden_solution,
+            "expected_behavior": expected_behavior,
+            "need_more_context": need_more_context,
+            "need_more_context_reason": need_more_context_reason,
+            "logMessage": current_entry.get("logMessage", "No line context"),
         }
 
         # Remove any existing feedback for this entry
@@ -159,8 +181,14 @@ class DataAnnotationApp:
             f for f in self.feedback_data if f["index"] != self.current_index
         ]
 
-        # Add new feedback if not empty
-        if feedback.strip():
+        # Add new feedback if not empty (either feedback, golden_solution, expected_behavior, or need_more_context info)
+        if (
+            feedback.strip()
+            or golden_solution.strip()
+            or expected_behavior.strip()
+            or need_more_context
+            or need_more_context_reason.strip()
+        ):
             self.feedback_data.append(feedback_entry)
 
         # Save to file
@@ -171,24 +199,39 @@ class DataAnnotationApp:
         except Exception as e:
             return f"Error saving feedback: {e}"
 
-    def get_current_entry(self) -> Tuple[str, str, str, str, str]:
+    def get_current_entry(
+        self,
+    ) -> Tuple[str, str, str, str, str, str, str, str, str, bool, bool, str]:
         """Get current data entry for display."""
         if not self.data:
             return (
                 "No data",
                 "No data",
                 "No data",
+                "No data",
+                "",
+                "",
                 "",
                 "0 / 0",
+                "",
+                False,
+                False,
+                "",
             )
 
         entry = self.data[self.current_index]
 
         # Format error log with syntax highlighting
-        log_content = entry.get("line_content", "No log content")
+        log_content = entry.get("logMessage", "No log content")
 
         # Format summary
         summary = entry.get("summary", "No summary available")
+
+        # Get context for solution
+        context_for_solution = entry.get(
+            "context_for_solution",
+            "No context available",
+        )
 
         # For now, use a placeholder for step-by-step solution
         # In the future, you can extend this to fetch from your database or add it to your JSON
@@ -202,11 +245,24 @@ class DataAnnotationApp:
             "4. Prevention measures",
         )
 
-        # Get existing feedback for this entry
+        # Get need_more_context from DB
+        db_need_more_context = entry.get("need_more_context", False)
+
+        # Get existing feedback, golden solution, expected behavior, and need more context info for this entry
         existing_feedback = ""
+        existing_golden_solution = ""
+        existing_expected_behavior = ""
+        existing_need_more_context = False
+        existing_need_more_context_reason = ""
         for f in self.feedback_data:
             if f["index"] == self.current_index:
-                existing_feedback = f["feedback"]
+                existing_feedback = f.get("feedback", "")
+                existing_golden_solution = f.get("golden_solution", "")
+                existing_expected_behavior = f.get("expected_behavior", "")
+                existing_need_more_context = f.get("need_more_context", False)
+                existing_need_more_context_reason = f.get(
+                    "need_more_context_reason", ""
+                )
                 break
 
         # Navigation info
@@ -215,12 +271,21 @@ class DataAnnotationApp:
         return (
             log_content,
             summary,
+            context_for_solution,
             step_by_step,
             existing_feedback,
+            existing_golden_solution,
+            existing_expected_behavior,
             nav_info,
+            step_by_step,  # raw text for copying
+            db_need_more_context,  # from DB
+            existing_need_more_context,  # from user annotation
+            existing_need_more_context_reason,  # from user annotation
         )
 
-    def navigate(self, direction: int) -> Tuple[str, str, str, str, str]:
+    def navigate(
+        self, direction: int
+    ) -> Tuple[str, str, str, str, str, str, str, str, str, bool, bool, str]:
         """Navigate through data entries."""
         if not self.data:
             return self.get_current_entry()
@@ -230,7 +295,9 @@ class DataAnnotationApp:
         )
         return self.get_current_entry()
 
-    def go_to_index(self, index: int) -> Tuple[str, str, str, str, str]:
+    def go_to_index(
+        self, index: int
+    ) -> Tuple[str, str, str, str, str, str, str, str, str, bool, bool, str]:
         """Jump to specific index."""
         if not self.data:
             return self.get_current_entry()
@@ -277,7 +344,7 @@ class DataAnnotationApp:
                 <tr style="border-bottom: 1px solid #475569; background-color: #1e293b;" onmouseover="this.style.backgroundColor='#334155'" onmouseout="this.style.backgroundColor='#1e293b'">
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{feedback["index"] + 1}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["filename"]}">{feedback["filename"][:20]}...</td>
-                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["line_content"]}">{feedback["line_content"]}</td>
+                    <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["logMessage"]}">{feedback["logMessage"]}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;" title="{feedback["feedback"]}">{feedback_text}</td>
                     <td style="padding: 8px; border: 1px solid #475569; color: #e2e8f0;">{timestamp}</td>
                 </tr>
@@ -299,18 +366,6 @@ def create_app():
 
     # Custom CSS for dark theme
     css = """
-    .error-log { 
-        font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace; 
-        font-size: 12px; 
-        line-height: 1.5; 
-        background-color: #0f172a !important; 
-        color: #e2e8f0 !important; 
-        padding: 16px; 
-        border-radius: 8px; 
-        border: 1px solid #334155 !important;
-        max-height: 600px;
-        overflow-y: auto;
-    }
     .summary-box {
         padding: 16px;
         border-radius: 8px;
@@ -319,74 +374,16 @@ def create_app():
         color: #e2e8f0 !important;
         line-height: 1.6;
     }
-    .solution-box {
-        padding: 16px;
-        border-radius: 8px;
-        border: 1px solid #475569 !important;
-        background-color: #1e293b !important;
-        color: #e2e8f0 !important;
-        line-height: 1.6;
-        margin-top: 12px;
-        max-height: 600px;
-        overflow-y: auto;
-    }
-    .solution-box h1, .solution-box h2, .solution-box h3, .solution-box h4 {
-        color: #f1f5f9 !important;
-        margin-top: 16px;
-        margin-bottom: 8px;
-    }
-    .solution-box h1 {
-        font-size: 1.5em;
-        border-bottom: 2px solid #475569;
-        padding-bottom: 8px;
-    }
-    .solution-box h2 {
-        font-size: 1.3em;
-        border-bottom: 1px solid #475569;
-        padding-bottom: 6px;
-    }
-    .solution-box h3 {
-        font-size: 1.1em;
-    }
-    .solution-box code {
-        background-color: #0f172a !important;
-        color: #38bdf8 !important;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    .solution-box pre {
-        background-color: #0f172a !important;
+    .basic_box {
+        font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace; 
+        font-size: 12px; 
+        line-height: 1.5; 
+        background-color: #0f172a !important; 
+        color: #e2e8f0 !important; 
+        padding: 8px; 
+        border-radius: 8px; 
         border: 1px solid #334155 !important;
-        border-radius: 6px;
-        padding: 12px;
-        overflow-x: auto;
-    }
-    .solution-box pre code {
-        background-color: transparent !important;
-        padding: 0;
-    }
-    .solution-box ul, .solution-box ol {
-        margin-left: 20px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-    .solution-box li {
-        margin-bottom: 4px;
-    }
-    .solution-box blockquote {
-        border-left: 4px solid #475569;
-        padding-left: 16px;
-        margin-left: 0;
-        color: #cbd5e1;
-        font-style: italic;
-    }
-    .solution-box a {
-        color: #60a5fa !important;
-        text-decoration: underline;
-    }
-    .solution-box a:hover {
-        color: #93c5fd !important;
+        max-height: 320px;
     }
     .feedback-box {
         min-height: 200px;
@@ -395,11 +392,13 @@ def create_app():
         border: 1px solid #475569 !important;
     }
     .nav-button {
-        min-width: 100px;
-        margin: 6px;
+        min-width: 60px;
+        margin: 2px;
         background-color: #475569 !important;
         color: #f1f5f9 !important;
         border: 1px solid #64748b !important;
+        padding: 4px 8px !important;
+        font-size: 0.9em !important;
     }
     .nav-button:hover {
         background-color: #64748b !important;
@@ -423,6 +422,23 @@ def create_app():
     /* Override any light theme remnants */
     .gradio-container {
         background-color: #0f172a !important;
+    }
+    /* Need More Context badge */
+    .need-context-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.9em;
+        font-weight: 600;
+        margin-left: 8px;
+    }
+    .need-context-true {
+        background-color: #3b82f6;
+        color: #f1f5f9;
+    }
+    .need-context-false {
+        background-color: #475569;
+        color: #94a3b8;
     }
     """
 
@@ -450,105 +466,482 @@ def create_app():
             "Annotate pipeline outputs with feedback on failure modes and solution quality."
         )
 
-        # Cluster sampling toggle
+        # Compact navigation controls - all in one row
         with gr.Row():
             cluster_sample_toggle = gr.Checkbox(
-                label="Show one sample per cluster (reduces duplicates)",
+                label="One sample per cluster",
                 value=False,
+                interactive=True,
+                scale=2,
+            )
+            prev_btn = gr.Button(
+                "← Prev",
+                elem_classes="nav-button",
+                scale=1,
+            )
+            nav_info = gr.Textbox(
+                label="Position",
+                interactive=False,
+                value="Loading...",
+                container=False,
+                scale=1,
+            )
+            next_btn = gr.Button(
+                "Next →",
+                elem_classes="nav-button",
+                scale=1,
+            )
+            jump_input = gr.Number(
+                label="Jump to",
+                minimum=1,
+                step=1,
+                precision=0,
+                scale=1,
+                container=False,
+            )
+            jump_btn = gr.Button(
+                "Go",
+                scale=1,
+            )
+
+        # Main content area - Reorganized into rows
+
+        # Row 1: Inputs
+        gr.Markdown("## 📥 Inputs")
+        error_log = gr.Textbox(
+            elem_classes="basic_box",
+            label="Error Log",
+            lines=5,
+            max_lines=5,
+            interactive=False,
+            show_copy_button=True,
+        )
+
+        # Row 2: Outputs (toggleable)
+
+        with gr.Row():
+            gr.Markdown("## 🤖 AI-Generated Outputs")
+            show_outputs_toggle = gr.Checkbox(
+                label="🤖 Show AI-Generated Outputs",
+                value=True,
                 interactive=True,
             )
 
-        # Navigation controls
-        with gr.Row():
-            with gr.Column(scale=1):
-                prev_btn = gr.Button("← Previous (←)", elem_classes="nav-button")
+        # Need More Context indicator from DB
+        db_need_more_context_display = gr.HTML(
+            value="<div class='need-context-badge need-context-false'>🤖 AI Assessment - Need More Context: Loading...</div>",
+            label="AI Assessment",
+        )
 
-            with gr.Column(scale=2):
-                nav_info = gr.Textbox(
-                    label="Position",
-                    interactive=False,
-                    value="Loading...",
-                    container=False,
+        with gr.Group(visible=True) as outputs_section:
+            with gr.Row():
+                show_summary_toggle = gr.Checkbox(
+                    label="Show Summary",
+                    value=True,
+                    interactive=True,
+                    scale=1,
                 )
+                show_context_toggle = gr.Checkbox(
+                    label="Show Context for Solution",
+                    value=True,
+                    interactive=True,
+                    scale=1,
+                )
+                show_solution_toggle = gr.Checkbox(
+                    label="Show Step-by-Step Solution",
+                    value=True,
+                    interactive=True,
+                    scale=1,
+                )
+            with gr.Column():
+                with gr.Column():
+                    summary_title = gr.Markdown(
+                        "### 🦾 Generated Summary", visible=True
+                    )
+                    summary = gr.Textbox(
+                        lines=8,
+                        elem_classes="basic_box",
+                        visible=True,
+                        show_label=False,
+                    )
 
-            with gr.Column(scale=1):
-                next_btn = gr.Button("Next (→)", elem_classes="nav-button")
+                with gr.Column():
+                    context_title = gr.Markdown(
+                        "### 🔍 Context for Solution", visible=True
+                    )
+                    context_for_solution = gr.Textbox(
+                        elem_classes="basic_box",
+                        show_label=False,
+                        lines=8,
+                        max_lines=8,
+                        interactive=False,
+                        show_copy_button=True,
+                    )
 
-        # Jump to specific entry
+                with gr.Column():
+                    with gr.Row():
+                        solution_title = gr.Markdown(
+                            "### 🦾 Step-by-Step Solution", visible=True
+                        )
+                        copy_solution_btn = gr.Button(
+                            "📋 Copy",
+                            size="sm",
+                            scale=0,
+                            min_width=80,
+                            visible=True,
+                        )
+                    step_by_step = gr.Markdown(
+                        value="",
+                        label="🤖 Generated Step-by-Step Solution",
+                        elem_classes="basic_box",
+                        visible=True,
+                    )
+                    # Hidden textbox to store raw markdown for copying
+                    step_by_step_raw = gr.Textbox(
+                        value="",
+                        visible=False,
+                        elem_id="step_by_step_raw",
+                    )
+
+        # Row 3: Feedback columns
+        gr.Markdown("## 📝 Human Annotations")
+
         with gr.Row():
-            jump_input = gr.Number(
-                label="Jump to entry", minimum=1, step=1, precision=0
+            annotation_view_toggle = gr.Radio(
+                choices=[
+                    "Feedback & Failure Mode",
+                    "Golden Solution",
+                    "Expected Behavior",
+                    "Need More Context",
+                ],
+                value="Feedback & Failure Mode",
+                label="📝 Human Annotations",
+                interactive=True,
+                scale=1,
             )
-            jump_btn = gr.Button("Go")
 
-        # Main content area
         with gr.Row():
-            # Left column - Error Log
-            with gr.Column(scale=2):
-                gr.Markdown("## Input:")
-                error_log = gr.Textbox(
-                    label="Error Log",
-                    lines=25,
-                    elem_classes="error-log",
-                    interactive=False,
-                    show_copy_button=True,
-                )
-
-            # Center column - Summary and Solution
-            with gr.Column(scale=2):
-                gr.Markdown("## Outputs:")
-                summary = gr.Textbox(
-                    label="Summary",
-                    lines=8,
-                    elem_classes="summary-box",
-                    interactive=False,
-                )
-
-                step_by_step = gr.Markdown(
-                    label="Step-by-Step Solution",
-                    elem_classes="solution-box",
-                    # lines=15,
-                    # interactive=False,
-                )
-
-            # Right column - Feedback
-            with gr.Column(scale=2):
+            with gr.Column(scale=1):
                 feedback_text = gr.Textbox(
                     label="Feedback & Failure Mode Analysis",
-                    lines=20,
+                    lines=15,
                     placeholder="Describe any issues with the summary or solution:\n"
                     "- Is the summary accurate?\n"
                     "- Is the solution appropriate?\n"
                     "- What failure modes do you observe?\n"
                     "- Any missing information?",
                     elem_classes="feedback-box",
+                    visible=True,
                 )
 
-                save_feedback_btn = gr.Button("Save Feedback", variant="primary")
-                feedback_status = gr.Textbox(label="Status", interactive=False, lines=1)
+                golden_solution_text = gr.Textbox(
+                    label="Golden Step-by-Step Solution (Optional)",
+                    lines=15,
+                    placeholder="Provide your golden/ideal step-by-step solution:\n"
+                    "1. Clear problem identification\n"
+                    "2. Root cause analysis\n"
+                    "3. Step-by-step solution\n"
+                    "4. Prevention measures\n\n"
+                    "This will be saved alongside your feedback for comparison with AI-generated solutions.",
+                    elem_classes="feedback-box",
+                    visible=False,
+                )
+
+                expected_behavior_text = gr.Textbox(
+                    label="What Should Happen to Produce the Right Solution",
+                    lines=15,
+                    placeholder="Describe what should happen to produce the correct solution:\n"
+                    "- What are the expected actions or steps?\n"
+                    "- What information or context is needed?\n"
+                    "- What should the ideal outcome look like?\n"
+                    "- What conditions need to be met?\n\n"
+                    "This helps document the expected behavior needed to generate the right solution.",
+                    elem_classes="feedback-box",
+                    visible=False,
+                )
+
+                # Need More Context tab
+                need_more_context_column = gr.Column(visible=False)
+                with need_more_context_column:
+                    gr.Markdown("### 🔍 Need More Context Assessment")
+                    need_more_context_toggle = gr.Checkbox(
+                        label="Need More Context",
+                        value=False,
+                        interactive=True,
+                    )
+                    need_more_context_reason = gr.Textbox(
+                        label="Explain Why More Context is Needed",
+                        lines=12,
+                        placeholder="Explain what additional context or information is needed:\n"
+                        "- What specific information is missing?\n"
+                        "- What context would help provide a better solution?\n"
+                        "- What additional details are required?\n"
+                        "- How would this context improve the solution?",
+                        elem_classes="feedback-box",
+                    )
+
+        # Save feedback button and status
+        with gr.Row():
+            save_feedback_btn = gr.Button(
+                "💾 Save Feedback", variant="primary", scale=1
+            )
+            feedback_status = gr.Textbox(
+                label="Status", interactive=False, lines=1, scale=2
+            )
 
         # Initialize the interface
         def init_interface():
-            return app.get_current_entry()
+            result = app.get_current_entry()
+            # Extract the db_need_more_context value (index 9) from database
+            db_need_more_context = result[9]
+            # Create HTML badge for need_more_context display
+            badge_class = (
+                "need-context-true" if db_need_more_context else "need-context-false"
+            )
+            badge_text = "Yes" if db_need_more_context else "No"
+            badge_html = f"<div class='need-context-badge {badge_class}'>🤖 AI Assessment - Need More Context: {badge_text}</div>"
+            # Return all values except db_need_more_context (index 9), plus the badge_html
+            # result[:9] = first 9 items, result[10:] = items 10 and 11 (user annotations)
+            return result[:9] + result[10:] + (badge_html,)
 
         # Event handlers
-        def handle_save_feedback(feedback):
-            status = app.save_feedback(feedback)
+        def handle_save_feedback(
+            feedback,
+            golden_solution,
+            expected_behavior,
+            need_more_context,
+            need_more_context_reason,
+        ):
+            status = app.save_feedback(
+                feedback,
+                golden_solution,
+                expected_behavior,
+                need_more_context,
+                need_more_context_reason,
+            )
             return status
 
-        def handle_navigate_prev():
-            return app.navigate(-1)
+        def handle_navigate_prev(
+            show_outputs, show_summary, show_context, show_solution
+        ):
+            (
+                log_content,
+                summary_content,
+                context_content,
+                step_content,
+                feedback,
+                golden,
+                expected,
+                nav,
+                raw_step,
+                db_need_more_context,
+                user_need_more_context,
+                user_need_more_context_reason,
+            ) = app.navigate(-1)
+            # Create HTML badge for need_more_context display
+            badge_class = (
+                "need-context-true" if db_need_more_context else "need-context-false"
+            )
+            badge_text = "Yes" if db_need_more_context else "No"
+            badge_html = f"<div class='need-context-badge {badge_class}'>🤖 AI Assessment - Need More Context: {badge_text}</div>"
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                expected,  # expected_behavior_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
+                badge_html,  # db_need_more_context_display
+                user_need_more_context,  # need_more_context_toggle
+                user_need_more_context_reason,  # need_more_context_reason
+            )
 
-        def handle_navigate_next():
-            return app.navigate(1)
+        def handle_navigate_next(
+            show_outputs, show_summary, show_context, show_solution
+        ):
+            (
+                log_content,
+                summary_content,
+                context_content,
+                step_content,
+                feedback,
+                golden,
+                expected,
+                nav,
+                raw_step,
+                db_need_more_context,
+                user_need_more_context,
+                user_need_more_context_reason,
+            ) = app.navigate(1)
+            # Create HTML badge for need_more_context display
+            badge_class = (
+                "need-context-true" if db_need_more_context else "need-context-false"
+            )
+            badge_text = "Yes" if db_need_more_context else "No"
+            badge_html = f"<div class='need-context-badge {badge_class}'>🤖 AI Assessment - Need More Context: {badge_text}</div>"
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                expected,  # expected_behavior_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
+                badge_html,  # db_need_more_context_display
+                user_need_more_context,  # need_more_context_toggle
+                user_need_more_context_reason,  # need_more_context_reason
+            )
 
-        def handle_jump(index):
+        def handle_jump(index, show_outputs, show_summary, show_context, show_solution):
             if index is not None:
-                return app.go_to_index(int(index) - 1)  # Convert to 0-based index
-            return app.get_current_entry()
+                (
+                    log_content,
+                    summary_content,
+                    context_content,
+                    step_content,
+                    feedback,
+                    golden,
+                    expected,
+                    nav,
+                    raw_step,
+                    db_need_more_context,
+                    user_need_more_context,
+                    user_need_more_context_reason,
+                ) = app.go_to_index(int(index) - 1)
+            else:
+                (
+                    log_content,
+                    summary_content,
+                    context_content,
+                    step_content,
+                    feedback,
+                    golden,
+                    expected,
+                    nav,
+                    raw_step,
+                    db_need_more_context,
+                    user_need_more_context,
+                    user_need_more_context_reason,
+                ) = app.get_current_entry()
+            # Create HTML badge for need_more_context display
+            badge_class = (
+                "need-context-true" if db_need_more_context else "need-context-false"
+            )
+            badge_text = "Yes" if db_need_more_context else "No"
+            badge_html = f"<div class='need-context-badge {badge_class}'>🤖 AI Assessment - Need More Context: {badge_text}</div>"
+            # Return content updates with visibility + preserved toggle states
+            return (
+                log_content,  # error_log
+                gr.update(visible=show_summary),  # summary_title
+                gr.update(
+                    value=summary_content, visible=show_summary
+                ),  # summary with visibility
+                gr.update(visible=show_context),  # context_title
+                gr.update(
+                    value=context_content, visible=show_context
+                ),  # context_for_solution with visibility
+                gr.update(visible=show_solution),  # solution_title
+                gr.update(
+                    value=step_content, visible=show_solution
+                ),  # step_by_step with visibility
+                feedback,  # feedback_text
+                golden,  # golden_solution_text
+                expected,  # expected_behavior_text
+                nav,  # nav_info
+                show_outputs,  # preserve show_outputs_toggle
+                show_summary,  # preserve show_summary_toggle
+                show_context,  # preserve show_context_toggle
+                show_solution,  # preserve show_solution_toggle
+                gr.update(visible=show_outputs),  # outputs_section visibility
+                raw_step,  # step_by_step_raw
+                badge_html,  # db_need_more_context_display
+                user_need_more_context,  # need_more_context_toggle
+                user_need_more_context_reason,  # need_more_context_reason
+            )
 
         def handle_cluster_toggle(show_sample):
-            return app.toggle_cluster_sampling(show_sample)
+            result = app.toggle_cluster_sampling(show_sample)
+            # Extract the db_need_more_context value (index 9) from database
+            db_need_more_context = result[9]
+            # Create HTML badge for need_more_context display
+            badge_class = (
+                "need-context-true" if db_need_more_context else "need-context-false"
+            )
+            badge_text = "Yes" if db_need_more_context else "No"
+            badge_html = f"<div class='need-context-badge {badge_class}'>🤖 AI Assessment - Need More Context: {badge_text}</div>"
+            # Return all values except db_need_more_context (index 9), plus the badge_html
+            # result[:9] = first 9 items, result[10:] = items 10 and 11 (user annotations)
+            return result[:9] + result[10:] + (badge_html,)
+
+        def handle_outputs_toggle(show_outputs):
+            return gr.update(visible=show_outputs)
+
+        def handle_summary_toggle(show_summary):
+            return (
+                gr.update(visible=show_summary),  # summary_title
+                gr.update(visible=show_summary),  # summary
+            )
+
+        def handle_context_toggle(show_context):
+            return (
+                gr.update(visible=show_context),  # context_title
+                gr.update(visible=show_context),  # context_for_solution
+            )
+
+        def handle_solution_toggle(show_solution):
+            return (
+                gr.update(visible=show_solution),  # solution_title
+                gr.update(visible=show_solution),  # step_by_step
+                gr.update(visible=show_solution),  # copy_solution_btn
+            )
+
+        def handle_annotation_view_toggle(view_selection):
+            """Toggle between feedback, golden solution, expected behavior, and need more context views."""
+            show_feedback = view_selection == "Feedback & Failure Mode"
+            show_golden = view_selection == "Golden Solution"
+            show_expected = view_selection == "Expected Behavior"
+            show_need_context = view_selection == "Need More Context"
+            return (
+                gr.update(visible=show_feedback),  # feedback_text
+                gr.update(visible=show_golden),  # golden_solution_text
+                gr.update(visible=show_expected),  # expected_behavior_text
+                gr.update(visible=show_need_context),  # need_more_context_column
+            )
 
         # Bind events
         interface.load(
@@ -556,49 +949,125 @@ def create_app():
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
                 nav_info,
+                step_by_step_raw,
+                need_more_context_toggle,
+                need_more_context_reason,
+                db_need_more_context_display,
             ],
         )
 
         prev_btn.click(
             handle_navigate_prev,
+            inputs=[
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
+                context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+                outputs_section,
+                step_by_step_raw,
+                db_need_more_context_display,
+                need_more_context_toggle,
+                need_more_context_reason,
             ],
         )
 
         next_btn.click(
             handle_navigate_next,
+            inputs=[
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
+                context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+                outputs_section,
+                step_by_step_raw,
+                db_need_more_context_display,
+                need_more_context_toggle,
+                need_more_context_reason,
             ],
         )
 
         jump_btn.click(
             handle_jump,
-            inputs=[jump_input],
+            inputs=[
+                jump_input,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+            ],
             outputs=[
                 error_log,
+                summary_title,
                 summary,
+                context_title,
+                context_for_solution,
+                solution_title,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
                 nav_info,
+                show_outputs_toggle,
+                show_summary_toggle,
+                show_context_toggle,
+                show_solution_toggle,
+                outputs_section,
+                step_by_step_raw,
+                db_need_more_context_display,
+                need_more_context_toggle,
+                need_more_context_reason,
             ],
         )
 
         save_feedback_btn.click(
             handle_save_feedback,
-            inputs=[feedback_text],
+            inputs=[
+                feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
+                need_more_context_toggle,
+                need_more_context_reason,
+            ],
             outputs=[feedback_status],
         )
 
@@ -608,9 +1077,58 @@ def create_app():
             outputs=[
                 error_log,
                 summary,
+                context_for_solution,
                 step_by_step,
                 feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
                 nav_info,
+                step_by_step_raw,
+                need_more_context_toggle,
+                need_more_context_reason,
+                db_need_more_context_display,
+            ],
+        )
+
+        show_outputs_toggle.change(
+            handle_outputs_toggle,
+            inputs=[show_outputs_toggle],
+            outputs=[outputs_section],
+        )
+
+        show_summary_toggle.change(
+            handle_summary_toggle,
+            inputs=[show_summary_toggle],
+            outputs=[summary_title, summary],
+        )
+
+        show_context_toggle.change(
+            handle_context_toggle,
+            inputs=[show_context_toggle],
+            outputs=[context_title, context_for_solution],
+        )
+
+        show_solution_toggle.change(
+            handle_solution_toggle,
+            inputs=[show_solution_toggle],
+            outputs=[solution_title, step_by_step, copy_solution_btn],
+        )
+
+        copy_solution_btn.click(
+            None,
+            inputs=[step_by_step_raw],
+            outputs=[],
+            js="(text) => {navigator.clipboard.writeText(text); return text;}",
+        )
+
+        annotation_view_toggle.change(
+            handle_annotation_view_toggle,
+            inputs=[annotation_view_toggle],
+            outputs=[
+                feedback_text,
+                golden_solution_text,
+                expected_behavior_text,
+                need_more_context_column,
             ],
         )
 
