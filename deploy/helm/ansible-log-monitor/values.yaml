@@ -20,4 +20,20 @@ minio:
 #     dbname: alm_db
 #     host: pgvector
 #     port: "5432"
-  
+
+# MCP Servers configuration
+mcp-servers:
+  mcp-servers:
+    weather:
+      enabled: false                                     # Disable default weather server
+    loki:
+      enabled: true
+      deploymentMode: deployment                         # How to deploy (deployment = standard Kubernetes)
+      transport: sse
+      targetPort: 8080
+      image:
+        repository: quay.io/rh-ai-quickstart/alm-loki-mcp-server
+        tag: query-direction-support
+      env:
+        LOKI_URL: "http://loki:3100"
+        PORT: "8080"

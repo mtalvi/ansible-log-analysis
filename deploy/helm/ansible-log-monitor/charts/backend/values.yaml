@@ -173,6 +173,8 @@ env:
     value: "8001"
   - name: COLLECTOR_ENDPOINT
     value: "http://alm-phoenix:6006/v1/traces"
+  - name: LOKI_MCP_SERVER_URL
+    value: "http://mcp-loki:8080/stream"
   # - name: PROD_CORS_ORIGIN # TODO check me
   #   value: "http://localhost:3000"
 
