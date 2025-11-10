@@ -234,10 +234,10 @@ rag:
     apiUrl: ""  # Will be set from EMBEDDINGS_LLM_URL in model-secret
   
   # Data paths
-  dataDir: "/app/data"
-  knowledgeBaseDir: "/app/data/knowledge_base"
-  # PVC mount path (different from dataDir to avoid overwriting image directories)
-  pvcMountPath: "/mnt/rag-data"
+  dataDir: "/app/data/rag"
+  knowledgeBaseDir: "/app/data/rag/knowledge_base"
+  # PVC mount path (mounted directly at /app/data/rag)
+  pvcMountPath: "/app/data/rag"
   
   # Persistence configuration for RAG index storage
   persistence:

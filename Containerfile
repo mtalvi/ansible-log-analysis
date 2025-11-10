@@ -50,8 +50,6 @@ COPY --from=builder /app/pyproject.toml /app/
 COPY data/knowledge_base/ ./data/knowledge_base/
 COPY data/logs/failed/ ./data/logs/failed/
 COPY init_pipeline.py ./
-COPY setup_data_dirs.sh ./
-COPY entrypoint.sh ./
 
 # Set environment variables
 ENV VIRTUAL_ENV=/app/.venv \
@@ -60,7 +58,6 @@ ENV VIRTUAL_ENV=/app/.venv \
 
 # Create necessary directories and set permissions for OpenShift (random UID, group 0)
 RUN mkdir -p /app/data/logs/failed /hf_cache && \
-    chmod +x setup_data_dirs.sh entrypoint.sh && \
     chgrp -R 0 /app /hf_cache && \
     chmod -R g=u /app /hf_cache
 
@@ -68,5 +65,4 @@ RUN mkdir -p /app/data/logs/failed /hf_cache && \
 EXPOSE 8000
 
 # Default command
-ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "alm.main_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]

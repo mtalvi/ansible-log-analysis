@@ -59,28 +59,6 @@ spec:
                 sleep 3
               done
               echo "Phoenix service is ready!"
-        {{- if .Values.rag.enabled }}
-        - name: copy-knowledge-base
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - sh
-            - -c
-            - |
-              echo "Copying knowledge base PDFs from image to PVC..."
-              # Create knowledge_base directory in PVC if it doesn't exist
-              mkdir -p {{ .Values.rag.pvcMountPath }}/knowledge_base
-              # Copy PDFs from image to PVC (only if source exists and has PDFs)
-              if [ -d /app/data/knowledge_base ] && [ "$(ls -A /app/data/knowledge_base/*.pdf 2>/dev/null)" ]; then
-                cp -v /app/data/knowledge_base/*.pdf {{ .Values.rag.pvcMountPath }}/knowledge_base/ || true
-                echo "✓ Copied $(ls -1 {{ .Values.rag.pvcMountPath }}/knowledge_base/*.pdf 2>/dev/null | wc -l) PDF file(s) to PVC"
-              else
-                echo "⚠ No PDFs found in image at /app/data/knowledge_base"
-              fi
-          volumeMounts:
-            - name: rag-data
-              mountPath: {{ .Values.rag.pvcMountPath }}
-        {{- end }}
       containers:
         - name: init-pipeline
           {{- with .Values.securityContext }}
@@ -90,13 +68,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - sh
-            - -c
-            - |
-              # Setup data directory structure (symlinks, etc.)
-              /app/setup_data_dirs.sh
-              # Run the init pipeline
-              python init_pipeline.py
+            - python
+            - init_pipeline.py
           {{- if .Values.env }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
