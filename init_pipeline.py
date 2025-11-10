@@ -6,15 +6,6 @@ import glob
 import shutil
 from pathlib import Path
 
-# dotenv is optional - only used for local development
-# In Kubernetes, all config comes from ConfigMaps/Secrets
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass  # Running in Kubernetes, no .env file needed
-
 
 def setup_data_directories():
     """
