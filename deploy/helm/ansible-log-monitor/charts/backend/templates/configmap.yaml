@@ -21,6 +21,8 @@ data:
   RAG_TOP_K: {{ .Values.config.rag.topK | quote }}
   RAG_TOP_N: {{ .Values.config.rag.topN | quote }}
   RAG_SIMILARITY_THRESHOLD: {{ .Values.config.rag.similarityThreshold | quote }}
+  RAG_HYBRID_SEARCH: {{ .Values.config.rag.hybridSearch | default "true" | quote }}
+  RAG_SEMANTIC_WEIGHT: {{ .Values.config.rag.semanticWeight | default "0.7" | quote }}
   {{- end }}
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
 {{- end }}

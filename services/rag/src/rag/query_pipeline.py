@@ -89,6 +89,8 @@ class AnsibleErrorQueryPipeline:
         top_k: int = 10,
         top_n: int = 3,
         similarity_threshold: float = 0.6,
+        use_hybrid: bool = True,
+        semantic_weight: float = 0.7,
     ):
         """
         Initialize the query pipeline.
@@ -98,10 +100,15 @@ class AnsibleErrorQueryPipeline:
             top_k: Number of candidates to retrieve from FAISS
             top_n: Number of final results to return
             similarity_threshold: Minimum cosine similarity score (0-1)
+            use_hybrid: Enable hybrid search (BM25 + semantic)
+            semantic_weight: Weight for semantic vs BM25 (0-1, default 0.7)
         """
         self.top_k = top_k
         self.top_n = top_n
         self.similarity_threshold = similarity_threshold
+        self.use_hybrid = use_hybrid
+        self.semantic_weight = semantic_weight
+        self.bm25_weight = 1.0 - semantic_weight
 
         # Initialize or use provided embedder
         if embedder is None:
@@ -115,10 +122,21 @@ class AnsibleErrorQueryPipeline:
         if self.embedder.index is None:
             raise ValueError("Embedder must have a loaded index")
 
+        # Check if BM25 is available
+        if self.use_hybrid and not hasattr(self.embedder, "bm25"):
+            logger.warning("BM25 index not available, disabling hybrid search")
+            self.use_hybrid = False
+
         logger.debug("Query pipeline initialized")
         logger.debug("  Top-k candidates: %d", self.top_k)
         logger.debug("  Top-n results: %d", self.top_n)
         logger.debug("  Similarity threshold: %s", self.similarity_threshold)
+        logger.debug(
+            "  Hybrid search: %s", "enabled" if self.use_hybrid else "disabled"
+        )
+        if self.use_hybrid:
+            logger.debug("  Semantic weight: %.2f", self.semantic_weight)
+            logger.debug("  BM25 weight: %.2f", self.bm25_weight)
         logger.debug("  Total errors in index: %d", len(self.embedder.error_store))
 
     def query(
@@ -165,8 +183,11 @@ class AnsibleErrorQueryPipeline:
         # Step 5.2: Generate embedding for log summary
         query_embedding = self._generate_query_embedding(log_summary)
 
-        # Step 5.3: Similarity search in FAISS
-        candidates = self._similarity_search(query_embedding, top_k)
+        # Step 5.3: Search (hybrid or semantic only)
+        if self.use_hybrid:
+            candidates = self._hybrid_search(log_summary, query_embedding, top_k)
+        else:
+            candidates = self._similarity_search(query_embedding, top_k)
 
         # Step 5.4: Fetch complete error data (already done in similarity_search)
 
@@ -188,7 +209,12 @@ class AnsibleErrorQueryPipeline:
             "top_n": top_n,
             "similarity_threshold": similarity_threshold,
             "model": self.embedder.model_name,
+            "hybrid_search": self.use_hybrid,
         }
+
+        if self.use_hybrid:
+            metadata["semantic_weight"] = self.semantic_weight
+            metadata["bm25_weight"] = self.bm25_weight
 
         logger.debug("Query complete in %.2fms", search_time_ms)
         logger.debug("  Retrieved: %d candidates", len(candidates))
@@ -293,6 +319,134 @@ class AnsibleErrorQueryPipeline:
                 )
 
         return results
+
+    def _bm25_search(self, query: str, top_k: int) -> List[tuple]:
+        """
+        Perform BM25 keyword search.
+
+        Returns:
+            List of (error_id, bm25_score) tuples
+        """
+        logger.debug("Performing BM25 search (top-k=%d)...", top_k)
+
+        # Tokenize query
+        tokenized_query = query.lower().split()
+
+        # Get BM25 scores
+        scores = self.embedder.bm25.get_scores(tokenized_query)
+
+        # Get top-k indices
+        top_indices = np.argsort(scores)[::-1][:top_k]
+
+        # Return results with scores
+        results = []
+        for idx in top_indices:
+            if scores[idx] > 0:  # Only include matches
+                error_id = self.embedder.bm25_error_ids[idx]
+                results.append((error_id, float(scores[idx])))
+
+        logger.debug("  BM25 found %d matches", len(results))
+        return results
+
+    def _hybrid_search(
+        self, query: str, query_embedding: np.ndarray, top_k: int
+    ) -> List[ErrorResult]:
+        """
+        Perform hybrid search using Reciprocal Rank Fusion (RRF).
+
+        Combines semantic (FAISS) and keyword (BM25) search using RRF.
+        """
+        logger.debug("Step 5.3: Hybrid search (RRF)...")
+
+        # Get results from both methods (retrieve more candidates for fusion)
+        semantic_results = self._similarity_search(query_embedding, top_k * 2)
+        bm25_results = self._bm25_search(query, top_k * 2)
+
+        # Reciprocal Rank Fusion (RRF)
+        # Formula: score = w1/(k + rank1) + w2/(k + rank2)
+        k = 60  # Standard RRF constant
+        combined_scores = {}
+
+        # Score semantic results
+        for rank, result in enumerate(semantic_results, 1):
+            error_id = result.error_id
+            rrf_score = self.semantic_weight * (1 / (k + rank))
+            combined_scores[error_id] = {
+                "rrf_score": rrf_score,
+                "semantic_score": result.similarity_score,
+                "bm25_score": 0.0,
+                "semantic_rank": rank,
+                "bm25_rank": None,
+            }
+
+        # Score BM25 results
+        for rank, (error_id, bm25_score) in enumerate(bm25_results, 1):
+            rrf_score = self.bm25_weight * (1 / (k + rank))
+
+            if error_id in combined_scores:
+                combined_scores[error_id]["rrf_score"] += rrf_score
+                combined_scores[error_id]["bm25_score"] = bm25_score
+                combined_scores[error_id]["bm25_rank"] = rank
+            else:
+                # BM25-only result - need to get semantic score
+                error_data = self.embedder.error_store.get(error_id)
+                if error_data:
+                    combined_scores[error_id] = {
+                        "rrf_score": rrf_score,
+                        "semantic_score": 0.0,
+                        "bm25_score": bm25_score,
+                        "semantic_rank": None,
+                        "bm25_rank": rank,
+                    }
+
+        # Sort by combined RRF score
+        sorted_results = sorted(
+            combined_scores.items(), key=lambda x: x[1]["rrf_score"], reverse=True
+        )[:top_k]
+
+        # Format as ErrorResult objects (use semantic score for filtering later)
+        final_results = []
+        for error_id, scores in sorted_results:
+            error_data = self.embedder.error_store[error_id]
+
+            sections = ErrorSection(
+                description=error_data["sections"].get("description", ""),
+                symptoms=error_data["sections"].get("symptoms", ""),
+                resolution=error_data["sections"].get("resolution", ""),
+                code=error_data["sections"].get("code"),
+                benefits=error_data["sections"].get("benefits"),
+            )
+
+            # Use semantic score for similarity_score (for threshold filtering)
+            # Store RRF score in a way that's accessible but doesn't break the interface
+            result = ErrorResult(
+                error_id=error_id,
+                error_title=error_data["error_title"],
+                similarity_score=scores[
+                    "semantic_score"
+                ],  # Keep semantic for threshold
+                source_file=error_data["metadata"]["source_file"],
+                page=error_data["metadata"]["page"],
+                sections=sections,
+            )
+
+            final_results.append(result)
+
+        # Log top results
+        if final_results:
+            logger.debug("  Hybrid search top candidates:")
+            for i, result in enumerate(final_results[:3], 1):
+                scores_info = combined_scores[result.error_id]
+                logger.debug(
+                    "    %d. %s... (RRF: %.4f, Sem: %.2f, BM25: %.2f)",
+                    i,
+                    result.error_title[:50],
+                    scores_info["rrf_score"],
+                    scores_info["semantic_score"],
+                    scores_info["bm25_score"],
+                )
+
+        return final_results
 
     def _filter_by_threshold(
         self, candidates: List[ErrorResult], threshold: float

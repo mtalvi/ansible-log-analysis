@@ -29,10 +29,22 @@ from pathlib import Path
 from langchain_core.documents import Document
 import faiss
 
+# Optional BM25 support (graceful fallback if not installed)
+try:
+    from rank_bm25 import BM25Okapi
+
+    BM25_AVAILABLE = True
+except ImportError:
+    BM25_AVAILABLE = False
+    BM25Okapi = None  # Placeholder
+
 from utils.config import config
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+if not BM25_AVAILABLE:
+    logger.warning("rank-bm25 package not installed - hybrid search will be disabled")
 
 
 class EmbeddingClient:
@@ -374,7 +386,8 @@ class AnsibleErrorEmbedder:
         for error_id, error_data in error_store.items():
             sections = error_data["sections"]
 
-            # Extract description and symptoms
+            # Extract title, description and symptoms
+            title = error_data.get("error_title", "").strip()
             description = sections.get("description", "").strip()
             symptoms = sections.get("symptoms", "").strip()
 
@@ -387,8 +400,10 @@ class AnsibleErrorEmbedder:
                 skipped += 1
                 continue
 
-            # Create composite text
+            # Create composite text (including title for better retrieval)
             composite_parts = []
+            if title:
+                composite_parts.append(title)
             if description:
                 composite_parts.append(description)
             if symptoms:
@@ -470,6 +485,47 @@ class AnsibleErrorEmbedder:
 
         logger.debug("Stored metadata for %d errors", len(self.error_store))
 
+        # Build BM25 index for hybrid search
+        self._build_bm25_index(error_ids)
+
+    def _build_bm25_index(self, error_ids: List[str]):
+        """Build BM25 index for keyword-based search."""
+        if not BM25_AVAILABLE:
+            logger.warning("rank-bm25 not installed, BM25 index will be disabled")
+            logger.warning("  Hybrid search will not be available")
+            logger.warning("  Install with: pip install rank-bm25")
+            self.bm25 = None
+            self.bm25_error_ids = []
+            return
+
+        logger.debug("=" * 60)
+        logger.debug("BUILDING BM25 INDEX")
+        logger.debug("=" * 60)
+
+        corpus = []
+        self.bm25_error_ids = []
+
+        for error_id in error_ids:
+            error_data = self.error_store[error_id]
+
+            # Create composite text (same as embeddings)
+            title = error_data.get("error_title", "")
+            description = error_data["sections"].get("description", "")
+            symptoms = error_data["sections"].get("symptoms", "")
+
+            doc_text = f"{title} {description} {symptoms}"
+
+            # Simple tokenization (lowercase and split by whitespace)
+            tokenized = doc_text.lower().split()
+
+            corpus.append(tokenized)
+            self.bm25_error_ids.append(error_id)
+
+        # Create BM25 index
+        self.bm25 = BM25Okapi(corpus)
+
+        logger.debug("BM25 index created with %d documents", len(corpus))
+
     def save_index(self):
         """
         Persist FAISS index and metadata to disk.
@@ -499,6 +555,11 @@ class AnsibleErrorEmbedder:
             "embedding_dim": self.embedding_dim,
             "total_errors": len(self.error_store),
         }
+
+        # Save BM25 data if available
+        if BM25_AVAILABLE and self.bm25 is not None:
+            metadata["bm25_error_ids"] = self.bm25_error_ids
+            metadata["bm25_corpus"] = [doc for doc in self.bm25.corpus]
 
         with open(self.metadata_path, "wb") as f:
             pickle.dump(metadata, f)
@@ -533,6 +594,24 @@ class AnsibleErrorEmbedder:
 
         self.error_store = metadata["error_store"]
         self.index_to_error_id = metadata["index_to_error_id"]
+
+        # Load BM25 index if available
+        if "bm25_error_ids" in metadata and "bm25_corpus" in metadata:
+            if BM25_AVAILABLE:
+                self.bm25_error_ids = metadata["bm25_error_ids"]
+                self.bm25 = BM25Okapi(metadata["bm25_corpus"])
+                logger.debug(
+                    "BM25 index loaded: %d documents", len(self.bm25_error_ids)
+                )
+            else:
+                logger.warning("BM25 data found in index but rank-bm25 not installed")
+                logger.warning("  Hybrid search will not be available")
+                self.bm25 = None
+                self.bm25_error_ids = []
+        else:
+            logger.debug("No BM25 index in metadata (may be from older index)")
+            self.bm25 = None
+            self.bm25_error_ids = []
 
         logger.debug("Metadata loaded: %d errors", len(self.error_store))
         logger.debug("  Model: %s", metadata["model_name"])

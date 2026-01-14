@@ -163,23 +163,44 @@ class RAGHandler:
 
         try:
             # Get configuration from environment variables
-            top_k = int(os.getenv("RAG_TOP_K", "3"))
-            top_n = int(os.getenv("RAG_TOP_N", "1"))
-            similarity_threshold = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.6"))
+            top_k = int(os.getenv("RAG_TOP_K"))
+            top_n = int(os.getenv("RAG_TOP_N"))
+            similarity_threshold = float(os.getenv("RAG_SIMILARITY_THRESHOLD"))
+            use_hybrid = os.getenv("RAG_HYBRID_SEARCH", "true").lower() in [
+                "true",
+                "1",
+                "yes",
+            ]
+            semantic_weight = float(os.getenv("RAG_SEMANTIC_WEIGHT", "0.7"))
+
+            logger.info(
+                "RAG parameters: top_k=%d, top_n=%d, threshold=%f, hybrid=%s",
+                top_k,
+                top_n,
+                similarity_threshold,
+                use_hybrid,
+            )
 
             # Query the RAG service
             logger.debug(
                 "Querying RAG service with log summary: %s...", log_summary[:100]
             )
 
+            payload = {
+                "query": log_summary,
+                "top_k": top_k,
+                "top_n": top_n,
+                "similarity_threshold": similarity_threshold,
+            }
+
+            # Add hybrid search parameters if enabled
+            if use_hybrid:
+                payload["use_hybrid"] = use_hybrid
+                payload["semantic_weight"] = semantic_weight
+
             response = await self._client.post(
                 "/rag/query",
-                json={
-                    "query": log_summary,
-                    "top_k": top_k,
-                    "top_n": top_n,
-                    "similarity_threshold": similarity_threshold,
-                },
+                json=payload,
             )
 
             response.raise_for_status()

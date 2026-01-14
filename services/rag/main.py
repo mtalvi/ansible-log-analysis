@@ -43,6 +43,12 @@ class QueryRequest(BaseModel):
     similarity_threshold: float = Field(
         default=0.6, ge=0.0, le=1.0, description="Minimum similarity threshold (0-1)"
     )
+    use_hybrid: bool = Field(
+        default=True, description="Enable hybrid search (BM25 + semantic)"
+    )
+    semantic_weight: float = Field(
+        default=0.7, ge=0.0, le=1.0, description="Weight for semantic vs BM25 (0-1)"
+    )
 
 
 class ErrorSection(BaseModel):
@@ -228,51 +234,28 @@ async def query_rag(request: QueryRequest):
 
         logger.info("Generated embeddings: shape=(1, %d)", len(query_embedding))
 
-        # Step 2: Similarity search in FAISS
-        logger.info("Performing FAISS similarity search...")
-        query_vector = query_embedding.reshape(1, -1)
-        similarities, indices = index_loader.index.search(query_vector, request.top_k)
-
-        # Flatten results
-        similarities = similarities[0]
-        indices = indices[0]
-
-        # Count candidates (excluding -1 indices)
-        num_candidates = len([idx for idx in indices if idx != -1])
-
-        # Step 3: Filter by threshold and format results
-        results = []
-        for idx, similarity in zip(indices, similarities):
-            if idx == -1:  # FAISS returns -1 when not enough results
-                continue
-
-            if similarity < request.similarity_threshold:
-                continue
-
-            error_id = index_loader.index_to_error_id[idx]
-            error_data = index_loader.error_store[error_id]
-
-            # Extract sections
-            sections = error_data.get("sections", {})
-            metadata = error_data.get("metadata", {})
-
-            result = ErrorResult(
-                error_id=error_id,
-                error_title=error_data.get("error_title", error_id),
-                similarity_score=float(similarity),
-                source_file=metadata.get("source_file"),
-                page=metadata.get("page"),
-                sections=ErrorSection(
-                    description=sections.get("description"),
-                    symptoms=sections.get("symptoms"),
-                    resolution=sections.get("resolution"),
-                    code=sections.get("code"),
-                    benefits=sections.get("benefits"),
-                ),
+        # Step 2: Perform search (hybrid or semantic only)
+        if request.use_hybrid and hasattr(index_loader, "bm25") and index_loader.bm25:
+            logger.info("Performing hybrid search (RRF)...")
+            # Semantic search
+            semantic_results = _semantic_search(
+                query_embedding, request.top_k * 2, request.similarity_threshold
             )
-            results.append(result)
+            # BM25 search
+            bm25_results = _bm25_search(request.query, request.top_k * 2)
+            # Combine with RRF
+            results = _reciprocal_rank_fusion(
+                semantic_results, bm25_results, request.semantic_weight, request.top_k
+            )
+            num_candidates = len(semantic_results) + len(bm25_results)
+        else:
+            logger.info("Performing semantic search...")
+            results = _semantic_search(
+                query_embedding, request.top_k, request.similarity_threshold
+            )
+            num_candidates = len(results)
 
-        # Step 4: Take top-N results
+        # Step 3: Take top-N results
         num_filtered = len(results)
         results = results[: request.top_n]
         num_returned = len(results)
@@ -294,12 +277,128 @@ async def query_rag(request: QueryRequest):
                 "top_k": request.top_k,
                 "top_n": request.top_n,
                 "similarity_threshold": request.similarity_threshold,
+                "hybrid_search": request.use_hybrid
+                if request.use_hybrid and hasattr(index_loader, "bm25")
+                else False,
             },
         )
 
     except Exception as e:
         logger.error("Error processing query: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+
+
+def _semantic_search(
+    query_embedding: np.ndarray, top_k: int, threshold: float
+) -> List[ErrorResult]:
+    """Perform semantic search using FAISS."""
+    query_vector = query_embedding.reshape(1, -1)
+    similarities, indices = index_loader.index.search(query_vector, top_k)
+
+    similarities = similarities[0]
+    indices = indices[0]
+
+    results = []
+    for idx, similarity in zip(indices, similarities):
+        if idx == -1 or similarity < threshold:
+            continue
+
+        error_id = index_loader.index_to_error_id[idx]
+        error_data = index_loader.error_store[error_id]
+        sections = error_data.get("sections", {})
+        metadata = error_data.get("metadata", {})
+
+        result = ErrorResult(
+            error_id=error_id,
+            error_title=error_data.get("error_title", error_id),
+            similarity_score=float(similarity),
+            source_file=metadata.get("source_file"),
+            page=metadata.get("page"),
+            sections=ErrorSection(
+                description=sections.get("description"),
+                symptoms=sections.get("symptoms"),
+                resolution=sections.get("resolution"),
+                code=sections.get("code"),
+                benefits=sections.get("benefits"),
+            ),
+        )
+        results.append(result)
+
+    return results
+
+
+def _bm25_search(query: str, top_k: int) -> List[tuple]:
+    """Perform BM25 keyword search."""
+    tokenized_query = query.lower().split()
+    scores = index_loader.bm25.get_scores(tokenized_query)
+    top_indices = np.argsort(scores)[::-1][:top_k]
+
+    results = []
+    for idx in top_indices:
+        if scores[idx] > 0:
+            error_id = index_loader.bm25_error_ids[idx]
+            results.append((error_id, float(scores[idx])))
+
+    return results
+
+
+def _reciprocal_rank_fusion(
+    semantic_results: List[ErrorResult],
+    bm25_results: List[tuple],
+    semantic_weight: float,
+    top_k: int,
+) -> List[ErrorResult]:
+    """Combine results using Reciprocal Rank Fusion."""
+    k = 60  # RRF constant
+    bm25_weight = 1.0 - semantic_weight
+    combined_scores = {}
+
+    # Score semantic results
+    for rank, result in enumerate(semantic_results, 1):
+        error_id = result.error_id
+        rrf_score = semantic_weight * (1 / (k + rank))
+        combined_scores[error_id] = {
+            "result": result,
+            "rrf_score": rrf_score,
+        }
+
+    # Score BM25 results
+    for rank, (error_id, bm25_score) in enumerate(bm25_results, 1):
+        rrf_score = bm25_weight * (1 / (k + rank))
+
+        if error_id in combined_scores:
+            combined_scores[error_id]["rrf_score"] += rrf_score
+        else:
+            # BM25-only result
+            error_data = index_loader.error_store.get(error_id)
+            if error_data:
+                sections = error_data.get("sections", {})
+                metadata = error_data.get("metadata", {})
+                result = ErrorResult(
+                    error_id=error_id,
+                    error_title=error_data.get("error_title", error_id),
+                    similarity_score=0.0,  # No semantic match
+                    source_file=metadata.get("source_file"),
+                    page=metadata.get("page"),
+                    sections=ErrorSection(
+                        description=sections.get("description"),
+                        symptoms=sections.get("symptoms"),
+                        resolution=sections.get("resolution"),
+                        code=sections.get("code"),
+                        benefits=sections.get("benefits"),
+                    ),
+                )
+                combined_scores[error_id] = {
+                    "result": result,
+                    "rrf_score": rrf_score,
+                }
+
+    # Sort by RRF score
+    sorted_results = sorted(
+        combined_scores.items(), key=lambda x: x[1]["rrf_score"], reverse=True
+    )[:top_k]
+
+    return [data["result"] for _, data in sorted_results]
 
 
 @app.post("/rag/reload")
